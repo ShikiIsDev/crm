@@ -1,18 +1,10 @@
-// src/routes/+page.server.js
 export async function load({ locals }) {
-    const session = locals.session;
-
-    // Redirect to /login if not logged in
+    const { session } = await locals.safeGetSession();
+  
     if (!session) {
-        return {
-            status: 302,
-            redirect: "/login",
-        };
+      throw redirect(303, '/auth'); // Redirect to login page if no session
     }
-
-    // Redirect logged-in users to a default route (e.g., /crm)
-    return {
-        status: 302,
-        redirect: "/crm",
-    };
-}
+  
+    return { session };
+  }
+  

@@ -20,6 +20,7 @@
 	},
 	"dependencies": {
 		"@iconify/svelte": "^4.0.2",
+		"@supabase/ssr": "^0.5.2",
 		"@supabase/supabase-js": "^2.46.1",
 		"read-excel-file": "^5.8.6",
 		"sass": "^1.81.0",

@@ -1,8 +1,8 @@
-export async function load({ locals, route }) {
-    if (route.id.startsWith('/(app)') && !locals.session) {
-        return {
-            status: 302,
-            redirect: '/login',
-        };
-    }
-}
+export const load = async ({ locals: { safeGetSession }, cookies }) => {
+    const { session } = await safeGetSession();
+    return {
+      session,
+      cookies: cookies.getAll(),
+    };
+  };
+  
