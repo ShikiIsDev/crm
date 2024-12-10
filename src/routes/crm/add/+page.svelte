@@ -7,7 +7,7 @@
 
         try {
             // Make the API call
-            const response = await fetch('/upload', { // Replace with the actual endpoint
+            const response = await fetch('/crm', { // Replace with the actual endpoint
                 method: 'POST',
                 body: formData,
             });
@@ -30,6 +30,7 @@
 
 <div class="body">
     <div class="form">
+        <p>test</p>
         <h1>Update Row</h1>
         <form on:submit={handleSubmit}>
             <label for="company_name">Company Name</label>

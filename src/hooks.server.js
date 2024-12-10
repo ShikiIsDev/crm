@@ -1,10 +1,12 @@
-import { createServerClient } from '@supabase/ssr'
+import { createServerClient } from '@supabase/ssr';
 import { redirect } from '@sveltejs/kit'
 import { sequence } from '@sveltejs/kit/hooks'
 
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_KEY } from '$env/static/public'
 
 const supabase = async ({ event, resolve }) => {
+    console.log('Supabase middleware triggered');
+    console.log('Cookies at start:', event.cookies.getAll());
   /**
    * Creates a Supabase client specific to this server request.
    *
@@ -14,12 +16,13 @@ const supabase = async ({ event, resolve }) => {
     cookies: {
       getAll: () => event.cookies.getAll(),
       setAll: (cookiesToSet) => {
+        console.log('Setting cookies:', cookiesToSet);
         cookiesToSet.forEach(({ name, value, options }) => {
-          event.cookies.set(name, value, { ...options, path: '/' })
-        })
+          event.cookies.set(name, value, { ...options, path: '/' });
+        });
       },
     },
-  })
+  });
 
   /**
    * Unlike `supabase.auth.getSession()`, which returns the session _without_
@@ -27,45 +30,54 @@ const supabase = async ({ event, resolve }) => {
    * JWT before returning the session.
    */
   event.locals.safeGetSession = async () => {
+    console.log('Fetching session and user...');
     const {
       data: { session },
-    } = await event.locals.supabase.auth.getSession()
+    } = await event.locals.supabase.auth.getSession();
     if (!session) {
-      return { session: null, user: null }
+        console.log('No session found');
+        return { session: null, user: null };
     }
 
     const {
       data: { user },
       error,
-    } = await event.locals.supabase.auth.getUser()
+    } = await event.locals.supabase.auth.getUser();
     if (error) {
-      return { session: null, user: null }
+        console.error('Error fetching user:', error);
+        return { session: null, user: null }
     }
 
+    console.log('Session and user fetched successfully:', session, user);
     return { session, user }
   }
 
   return resolve(event, {
     filterSerializedResponseHeaders(name) {
-      return name === 'content-range' || name === 'x-supabase-api-version'
+        console.log('Filtering response headers:', name);
+        return name === 'content-range' || name === 'x-supabase-api-version'
     },
-  })
-}
+  });
+};
 
 const authGuard = async ({ event, resolve }) => {
+    console.log('Auth guard triggered');
     const { session, user } = await event.locals.safeGetSession()
-    event.locals.session = session
-    event.locals.user = user
+    console.log('Session:', session);
+    console.log('User:', user);
+
+    event.locals.session = session;
+    event.locals.user = user;
   
-    if (!event.locals.session && event.url.pathname.startsWith('/private')) {
-      redirect(303, '/auth')
+    if (!event.locals.session && event.url.pathname.startsWith('/crm')) {
+        return redirect(303, '/auth');
     }
   
     if (event.locals.session && event.url.pathname === '/auth') {
-      redirect(303, '/private')
+        return redirect(303, '/crm');
     }
   
-    return resolve(event)
+    return resolve(event);
   }
 
 export const handle = sequence(supabase, authGuard)

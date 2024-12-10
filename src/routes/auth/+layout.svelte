@@ -1,11 +1,13 @@
 <script>
-    let { children } = $props()
+    export let children;  // Declare the 'children' prop passed to the component
   </script>
   
-  <header>
+  <!-- <header>
     <nav>
       <a href="/">Home</a>
     </nav>
-  </header>
+  </header> -->
   
-  {@render children()}
+  <!-- Render the children manually -->
+  <slot/>
+  

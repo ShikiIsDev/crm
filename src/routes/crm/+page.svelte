@@ -4,9 +4,13 @@
     import { supabase } from "$lib/supabaseClient.js";
     import readXlsxFile from 'read-excel-file';
     import { json } from '@sveltejs/kit';
+    import { goto } from '$app/navigation';
 
     export let data;
     // console.log(data);
+
+    // let { sessionData, children } = $props()
+    // let { supabase } = $derived(sessionData)
 
     let showHiddenFields = false;
     let editingRow = null; 
@@ -149,8 +153,8 @@
                     if (userConfirmed) {
                         
 
-                        const resp = await fetch('/update', {
-                            method: 'POST',
+                        const resp = await fetch('/crm', {
+                            method: 'PUT',
                             body: formData,
                         });
 
@@ -162,7 +166,7 @@
                     }
                 } else {
 
-                    const resp = await fetch('/upload', {
+                    const resp = await fetch('/crm', {
                         method:'POST',
                         body: formData,
                     });
@@ -249,8 +253,8 @@
             const formData = new FormData();
             formData.append("email", email);
 
-            const resp = await fetch('/delete', {
-                method:'POST',
+            const resp = await fetch('/crm', {
+                method:'DELETE',
                 body: formData,
             });
 
@@ -261,26 +265,6 @@
             console.error("Unexpected error:", error);
         }
     }
-
-    // async function updateRow(updatedRow) {
-    //     try {
-    //         console.log("update")
-    //         const response = await fetch('/update', {
-    //             method: 'POST',
-    //             body: JSON.stringify(updatedRow),
-    //         });
-
-    //         if (response.ok) {
-    //             console.log("Row updated successfully!");
-    //             // Refresh data or update the local state
-    //             editingRow = null; // Exit editing mode
-    //         } else {
-    //             console.error("Failed to update the row");
-    //         }
-    //     } catch (error) {
-    //         console.error("Error updating the row:", error);
-    //     }
-    // }
 
     function editRow(row) {
         console.log('Editing row:', row);
@@ -294,8 +278,8 @@
         try {
             console.log('Saving row:', editedData);
 
-            const resp = await fetch('/edit', {
-                method:'POST',
+            const resp = await fetch('/crm', {
+                method:'PATCH',
                 body: JSON.stringify(editedData),
             });
 
@@ -315,6 +299,15 @@
     function cancelEdit() {
         editingRow = null; // Exit editing mode
     }
+
+    async function handleLogout() {
+        console.log("signing out");
+        const {error } = await supabase.auth.signOut();
+
+        console.log(error)
+        // location.reload();
+    }
+
 
 </script>
 
@@ -360,11 +353,16 @@
                     {/if}
                 </div>
                 <div class="add">
-                    <a href="/add">
+                    <a href="/crm/add">
                         <button class="add-row">
                             Add
                         </button>
                     </a>
+                </div>
+                <div class="logOut">
+                    <button on:click={handleLogout}>
+                        Logout
+                    </button>
                 </div>
             </div>
         </div>
