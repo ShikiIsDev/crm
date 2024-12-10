@@ -1,16 +1,15 @@
 <script>
     import Icon from '@iconify/svelte';
     import * as XLSX from "xlsx";
-    import { supabase } from "$lib/supabaseClient.js";
+    // import { supabase } from "$lib/supabaseClient.js";
     import readXlsxFile from 'read-excel-file';
     import { json } from '@sveltejs/kit';
-    import { goto } from '$app/navigation';
+    import { goto, invalidateAll } from '$app/navigation';
 
     export let data;
     // console.log(data);
 
-    // let { sessionData, children } = $props()
-    // let { supabase } = $derived(sessionData)
+    let { supabase } = data;
 
     let showHiddenFields = false;
     let editingRow = null; 
@@ -303,6 +302,8 @@
     async function handleLogout() {
         console.log("signing out");
         const {error } = await supabase.auth.signOut();
+
+        invalidateAll()
 
         console.log(error)
         // location.reload();
