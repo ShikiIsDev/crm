@@ -108,7 +108,7 @@ export async function PUT( { request }) {
                     facebook: facebook,
                     builtsearchUrl: builtsearchUrl,
             })
-            .eq('company_name',company_name);
+            .eq('email',email);
 
             if (updateError) {
                 throw new Error(updateError.message);
@@ -130,7 +130,7 @@ export async function PATCH( { request }) {
         const email = row['email'];
         const first_name = row['first_name'];
         const last_name = row['last_name'];
-        const tags = Array.isArray(row['tags']) ? row['tags'] : [row['tags']];
+        const tags = row['tags'];
         const whatsapps = row['whatsapps'];
         const contact = row['contact'];
         const country = row['country'];
@@ -158,7 +158,7 @@ export async function PATCH( { request }) {
                 facebook,
                 builtsearchUrl
             })
-            .eq('company_name',company_name);
+            .eq('email',email);
 
             if (updateError) {
                 throw new Error(updateError.message);

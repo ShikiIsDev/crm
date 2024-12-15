@@ -5,17 +5,49 @@
     import readXlsxFile from 'read-excel-file';
     import { json } from '@sveltejs/kit';
     import { goto, invalidateAll } from '$app/navigation';
+    import { onMount } from 'svelte';
 
-    export let data;
-    // console.log(data);
+    export let data = [];
+    console.log(data.data);
 
     let { supabase } = data;
 
     let showHiddenFields = false;
     let editingRow = null; 
     let editedData = null;
+    let searchTerm = '';
+    let filteredData = [...data.data];
+    let originalData = [...data.data];
 
-    // Each checkbox will be bound to a unique entry in this object
+    let showRows = 10;
+    let currentPage = 1;
+    let totalPages = Math.ceil(data.data.length / showRows);
+
+    let displayedData = [];
+    // updateTableData();
+
+    let rows = data.data.map((row) => ({
+        id: row.id,
+        first_name: row.first_name,
+        last_name: row.last_name,
+        company_name: row.company_name,
+        company_reg: row.company_reg,
+        contact: row.contact,
+        country: row.country,
+        email: row.email,
+        facebook: row.facebook,
+        instagram: row.instagram,
+        tags: row.tags,
+        website: row.website,
+        whatsapps: row.whatsapps,
+        builtsearchUrl: row.builtsearchUrl,
+        pspc_cat: row.pspc_cat
+    }));
+
+    console.log(data.data.length)
+
+    console.log("totalpages:",totalPages);
+
     let checkedFields = {
         company_name: true,  // Default to true (checked)
         email: true,         // Default to true (checked)
@@ -69,8 +101,67 @@
         { value: "supplier", label: "Supplier"}
     ];
 
+    function handleShowRowsChange(event) {
+        showRows = parseInt(event.target.value);
+        totalPages = Math.ceil(rows.length / showRows);
+        console.log(totalPages)
+        currentPage = 1;
+        updateTableData();
+    }
+
+    function updateTableData() {
+        const start = (currentPage - 1) * showRows;
+        const end = start + showRows;
+        displayedData = rows.slice(start, end);
+        data.data = displayedData;
+        console.log(displayedData)
+    }
+
+    function nextPage() {
+        if (currentPage < totalPages) {
+            currentPage++;
+            updateTableData();
+            console.log(currentPage)
+        }
+    }
+
+    function previousPage() {
+        if (currentPage > 1) {
+            currentPage--;
+            updateTableData();
+            console.log(currentPage)
+        }
+    }
+
+    function search() {
+        console.log('test')
+        const term = searchTerm.toLowerCase().trim();
+        if(term) {
+            console.log(term)
+            filteredData = data.data.filter(item =>
+                Object.values(item).some(value =>
+                    value?.toString().toLowerCase().includes(term)
+                )
+            )
+
+            console.log(filteredData)
+            data.data = filteredData;
+        } else {
+            data.data = [...originalData];
+        }
+    }
+
     function filter() {
         showHiddenFields = !showHiddenFields;
+    }
+
+    function filterData(item) {
+
+        if (!searchTerm) return true;
+
+        return Object.values(item).some(value =>
+            value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+        );
     }
 
     function handleFileUpload(event) {
@@ -92,19 +183,19 @@
             const data = rows.slice(1).map((row) => {
             let obj = {};
             headers.forEach((header, index) => {
-                obj[header] = row[index];
+                obj[header] = row[index] ?? "";
             });
 
             // Normalize all keys and values
             const normalizedObj = {};
             Object.entries(obj).forEach(([key, value]) => {
                 // Normalize keys
-                const normalizedKey = key.toLowerCase().replace(/\s+/g, '_');
+                const normalizedKey = key.toLowerCase().replace(/\s+/g, ' ');
                 
                 // Normalize values (if it's a string)
                 let normalizedValue = value;
                 if (typeof value === 'string') {
-                    normalizedValue = value.toLowerCase().replace(/\s+/g, '_');
+                    normalizedValue = value.toLowerCase().replace(/\s+/g, ' ');
                 }
                 
                 normalizedObj[normalizedKey] = normalizedValue;
@@ -162,7 +253,7 @@
                         } else {
                             console.log("Update failed")
                         }
-                    }
+                    } 
                 } else {
 
                     const resp = await fetch('/crm', {
@@ -176,6 +267,8 @@
                         console.log("Upload failed");
                     }
                 }
+
+                location.reload();
 
             }
         } catch (error) {
@@ -218,6 +311,9 @@
             }
         });
     }
+    function toggleHiddenFields() {
+        showHiddenFields = !showHiddenFields;
+    }
 
     function sortData(key) {
         if (sortConfig.key === key) {
@@ -257,8 +353,11 @@
                 body: formData,
             });
 
+            location.reload();
+
             if (resp.ok) {
                 console.log("Delete successful");
+                
             }
         } catch (error) {
             console.error("Unexpected error:", error);
@@ -289,6 +388,7 @@
             } else {
                 console.error('Fetch error:', result.message);
             }
+            location.reload();
         } catch (err) {
             console.error('Error saving row via API:', err);
         }
@@ -299,71 +399,59 @@
         editingRow = null; // Exit editing mode
     }
 
-    async function handleLogout() {
-        console.log("signing out");
-        const {error } = await supabase.auth.signOut();
-
-        invalidateAll()
-
-        console.log(error)
-        // location.reload();
-    }
-
+    updateTableData();
+    
 
 </script>
 
 <div class="body">
     <div class="contact">
+        <div class="import-export">
+            <div class="import">
+                <label for="import-file" class="import-button">
+                    Import Excel
+                </label>
+                <input
+                    id="import-file"
+                    type="file"
+                    accept=".xlsx, .xls"
+                    on:change={handleFileUpload}
+                    
+                    style="display: none;"
+                />
+            </div>
+            <div on:click={exportToExcel} class="export">
+                Export Excel
+            </div>
+        </div>
         <div class="header">
             <p>Contact</p>
             <div class="functions">
                 <div class="search-field">
-                    <input type="text" placeholder="Search...">
-                </div>
-                <div>
-                    <label for="import-file" class="import-button">
-                        Import Excel
-                    </label>
                     <input
-                        id="import-file"
-                        type="file"
-                        accept=".xlsx, .xls"
-                        on:change={handleFileUpload}
-                        
-                        style="display: none;"
+                    bind:value={searchTerm}
+                    type="search"
+                    placeholder="Search..."
+                    on:input={search} 
                     />
                 </div>
-                <button on:click={exportToExcel} class="export">
-                    Export to Excel
-                </button>
+                
                 <div class="filter">
-                    <button on:click={filter}>
+                    <button on:click={toggleHiddenFields}>
                         <Icon icon="mdi:filter" height="1rem" width="1rem"></Icon>
                     </button>
-                    {#if showHiddenFields === true}
-                        <div class="hidden-fields">
-                            {#each hidden_fields as field}
-                                <div class="hidden-item">
-                                    <input type="checkbox" 
-                                           id={field.value} 
-                                           bind:checked={checkedFields[field.value]}>
-                                    {field.label}
-                                </div>
-                            {/each}
-                        </div>
-                    {/if}
-                </div>
-                <div class="add">
-                    <a href="/crm/add">
-                        <button class="add-row">
-                            Add
-                        </button>
-                    </a>
-                </div>
-                <div class="logOut">
-                    <button on:click={handleLogout}>
-                        Logout
-                    </button>
+                    <div class="hidden-fields {showHiddenFields ? 'visible' : ''}">
+                        {#each hidden_fields as field}
+                            <div class="hidden-item">
+                                <input
+                                    type="checkbox"
+                                    id={field.value}
+                                    bind:checked={checkedFields[field.value]}
+                                />
+                                {field.label}
+                            </div>
+                        {/each}
+                    </div>
                 </div>
             </div>
         </div>
@@ -396,27 +484,61 @@
                 </thead>
                 <tbody>
                     {#each data.data as item (item.id)}
-                        <tr>
-                            {#each Object.keys(checkedFields) as key (key)}
-                                {#if checkedFields[key]}
-                                    <td>
-                                        {#if editingRow === item.id}
-                                            <input
-                                                type="text"
-                                                bind:value={editedData[key]}
-                                            />
+                    <tr>
+                        {#each Object.keys(checkedFields) as key (key)}
+                            {#if checkedFields[key]}
+                                <td>
+                                    {#if editingRow === item.id}
+                                        <input
+                                            type="text"
+                                            bind:value={editedData[key]}
+                                        />
+                                    {:else}
+                                        {#if key === 'tags'}
+                                            {#if item[key]}
+                                            <div class="tags-field">
+                                                {#each item[key].split(',') as tag}
+                                                    <span class="tag">
+                                                        {tags.find(t => t.value === tag.trim().toLowerCase())?.label || tag}
+                                                    </span>{' '}
+                                                {/each}
+                                            </div>
+                                            {:else}
+                                                N/A
+                                            {/if}
+                                        {:else if key === 'contact'}
+                                            {#if item[key]}
+                                                <a href={`tel:${item[key]}`} target="_blank" rel="noopener noreferrer">
+                                                    {item[key]}
+                                                </a>
+                                            {:else}
+                                                N/A
+                                            {/if}
+                                        {:else if key === 'whatsapps'}
+                                            {#if item[key]}
+                                                <a href={`https://wa.me/${item[key]}`} target="_blank" rel="noopener noreferrer">
+                                                    {item[key]}
+                                                </a>
+                                            {:else}
+                                                N/A
+                                            {/if}
+                                        {:else if key === 'website' || key === 'builtsearchUrl'}
+                                            {#if item[key]}
+                                                <a href={item[key]} target="_blank" rel="noopener noreferrer">
+                                                    {item[key]}
+                                                </a>
+                                            {:else}
+                                                N/A
+                                            {/if}
                                         {:else}
                                             {item[key]}
                                         {/if}
-                                    </td>
-                                {/if}
-                            {/each}
-                            <!-- <td>
-                                <button on:click={() => deleteRow(item.email)} class="delete-button">
-                                    Delete
-                                </button>
-                            </td> -->
-                            <td>
+                                    {/if}
+                                </td>
+                            {/if}
+                        {/each}
+                        <td>
+                            <div class="actions">
                                 {#if editingRow === item.id}
                                     <button on:click={saveRow} class="save-button">
                                         Save
@@ -426,17 +548,58 @@
                                     </button>
                                 {:else}
                                     <button on:click={() => editRow(item)} class="edit-button">
-                                        Edit
+                                        <Icon icon="typcn:edit" width="24" height="24"></Icon>
                                     </button>
                                     <button on:click={() => deleteRow(item.email)} class="delete-button">
-                                        Delete
+                                        <Icon icon="material-symbols:delete-outline" width="24" height="24" style="color: #e9686a"></Icon>
                                     </button>
                                 {/if}
-                            </td>
-                        </tr>
+                            </div>
+                        </td>
+                    </tr>
                     {/each}
                 </tbody>
             </table>
+        </div>
+
+        <div class="controls">
+            <div class="show-rows">
+                <label for="rows-select">Show rows:</label>
+                <select name="rows-select" on:change={handleShowRowsChange}>
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                </select>
+            </div>
+            <div class="pagination">
+                <button
+                    on:click={previousPage}
+                    class="page-number {currentPage === 1 ? 'disabled' : ''}"
+                    disabled={currentPage === 1}>
+                    <Icon icon="line-md:arrow-small-left" />
+                </button>
+
+                {#each Array(totalPages) as _, index}
+                    {#if index +1 === currentPage}
+                        <span class="page-number current">{index+1}</span>
+                    {:else}
+                        <button
+                            on:click={() => {
+                                currentPage = index + 1;
+                                updateTableData()
+                                
+                            }}
+                            class="page-number">
+                            {index + 1}
+                        </button>
+                    {/if}
+                {/each}
+
+                <button on:click={nextPage} class="page-number" disabled={currentPage === totalPages}>
+                    <Icon icon="line-md:arrow-small-right" />
+
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -445,8 +608,51 @@
     .body {
         font-family: 'Poppins', sans-serif;
         margin: 0;
-        padding: 0;
+        display: flex;
+        min-height: 100vh;
+        background-color: #f9fafc;
+        width: 100%;
+        padding: 1rem;
 
+                .import-export {
+                    display: flex;
+                    gap: 0.5rem;
+                }
+
+                .import {
+                        display: flex;
+                        flex-direction: row;
+                        background-color: white;
+                        color: #007bff;
+                        border: #007bff 1px solid;
+                        align-items: center;
+                        padding: 0.5rem;
+                        border-radius: 5px;
+                        width: fit-content;
+                    }
+
+                    .import:hover {
+                        background-color: rgb(213, 204, 204);
+                        cursor: pointer;
+                    }
+
+                    .export {
+                        display: flex;
+                        flex-direction: row;
+                        background-color: white;
+                        color: #82868f;
+                        border: #82868f 1px solid;
+                        align-items: center;
+                        padding: 0.5rem;
+                        border-radius: 5px;
+                        width: fit-content;
+                    }
+
+                    .export:hover {
+                        background-color: rgb(213, 204, 204);
+                        cursor: pointer;
+                    }
+        
         .contact {
             padding: 1rem;
 
@@ -494,25 +700,6 @@
                         background-color: #1272d9;
                     }
 
-                    .export {
-                        background-color: #007bff; 
-                        color: white; /* White text */
-                        height: 2rem; /* Fixed height */
-                        padding: 0 1rem; /* Horizontal padding only */
-                        font-size: 1rem;
-                        border: none;
-                        border-radius: 5px; /* Rounded corners */
-                        cursor: pointer;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        transition: background-color 0.3s, transform 0.2s;
-                    }
-
-                    .export:hover {
-                        background-color: #1272d9; /* Darker green on hover */
-                    }
-
                     @media (max-width: 640px) {
                         .export {
                             height: 32px; /* Adjust height for smaller screens */
@@ -521,8 +708,7 @@
                     }
 
                     .filter {
-                        display: flex;
-                        flex-direction: column;
+                        position: relative; /* This makes the filter button the parent for positioning */
 
                         button {
                             padding: 0.5rem;
@@ -531,23 +717,41 @@
                             border: none;
                             border-radius: 4px;
                             cursor: pointer;
-                            align-content: center;
                             height: 2rem;
                             width: 2rem;
-                        
-                            .hidden-fields {
-                                display: flex;
-                                flex-direction: column;
-                                gap: 0.5rem;
-                                border: 1px solid #82868F;
-                                border-radius: 5px;
-                            }
 
                             &:hover {
                                 background-color: #0056b3;
                             }
                         }
+
+                        .hidden-fields {
+                            position: absolute; /* Position relative to the button */
+                            top: 2.5rem; /* Place it below the button */
+                            left: 50%; /* Align with the center of the button horizontally */
+                            transform: translateX(-50%); /* Center it using translation */
+                            background-color: white;
+                            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Subtle shadow */
+                            padding: 10px;
+                            border: 1px solid #ccc;
+                            z-index: 1000; /* Ensure it overlaps other elements */
+                            display: none; /* Hidden by default */
+                            grid-template-columns: repeat(2, 1fr); /* 2 columns of equal width */
+                            grid-gap: 10px; /* Add space between items */
+                        }
+
+                        .hidden-fields.visible {
+                            display: grid; /* Display when visible */
+                        }
+
+                        .hidden-item {
+                            display: flex;
+                            align-items: center;
+                            gap: 0.5rem;
+                        }
+                        
                     }
+
                 }
             }
 
@@ -575,15 +779,92 @@
                     border-bottom: 1px solid #82868F;
                 }
 
-                .tags {
+                .tags-field {
+                    display: flex;
+                    flex-direction: row;
+                    gap: 0.5rem;
+                }
+                .tag {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.5rem;
+                    justify-content: center;
                     color: #AEAEAE;
                     border: 1px solid #AEAEAE;
                     border-radius: 5px;
                     width: fit-content;
                     padding: 0.5rem;
                     font-size: 0.5rem;
-                    margin: 0.5rem;
                 }
+
+                .actions {
+                    display: flex;
+                    gap:0.3rem;
+
+                    button {
+                        padding: 0.5rem;
+                        font-family: 'Poppins';
+                        border: 0px;
+                        background-color: transparent;
+                    }
+
+                    button:hover {
+                        background-color: rgb(224, 209, 209);
+                    }
+                }
+            }
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 1rem;
+
+            .shows-rows {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+
+                select {
+                    padding: 0.5rem;
+				border: 1px solid #c7c7c7;
+				border-radius: 6px;
+				background-color: #ebeded;
+				width: 64px;
+				cursor: pointer;
+                }
+            }
+
+            .pagination {
+                display: flex;
+                gap: 0.25rem;
+
+                .disabled {
+                    opacity: 0.5rem;
+                    cursor: not-allowed;
+                }
+            }
+
+            .page-number {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                cursor: pointer;
+                border-radius: 5px;
+                background-color: transparent;
+                border: 1px #a5c9d4 solid;
+                color: inherit;
+
+                &:hover {
+                    background-color: #ebeded;
+                }
+            }
+
+            .page-number.current {
+                background-color: #a5c9d4;
+                color: #151d23;
+                width: 40px;
+                height: 40px;
             }
         }
     }

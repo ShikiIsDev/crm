@@ -30,9 +30,9 @@ export const load = async ({ data, depends, fetch }) => {
     console.error('Error fetching user:', error);
   }
 
-  console.log('Is browser:', isBrowser());
-  console.log('Session:', session);
-  console.log('User:', user);
+//   console.log('Is browser:', isBrowser());
+//   console.log('Session:', session);
+//   console.log('User:', user);
 
   return { session, supabase, user };
 };

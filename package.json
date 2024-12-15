@@ -22,8 +22,11 @@
 		"@iconify/svelte": "^4.1.0",
 		"@supabase/ssr": "^0.5.2",
 		"@supabase/supabase-js": "^2.47.3",
+		"chart.js": "^4.4.7",
+		"country-codes-list": "^1.6.11",
 		"read-excel-file": "^5.8.6",
 		"sass": "^1.82.0",
+		"svelte-multiselect": "11.0.0-rc.1",
 		"xlsx": "^0.18.5"
 	}
 }
