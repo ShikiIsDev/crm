@@ -174,108 +174,112 @@
         }
         }
 
-    async function upload(file) {
+        async function upload(file) {
         try {
-            // Step 1: Parse Excel File
-            const rows = await readXlsxFile(file);
+        // Step 1: Parse Excel File
+        const rows = await readXlsxFile(file);
+        const headers = rows[0]; // Extract headers from the first row
 
-            const headers = rows[0]; // Extract headers from the first row
-            const data = rows.slice(1).map((row) => {
+        const data = rows.slice(1).map((row) => {
             let obj = {};
             headers.forEach((header, index) => {
-                obj[header] = row[index] ?? "";
+                obj[header] = row[index] ?? ""; // Replace null/undefined with empty string
             });
 
-            // Normalize all keys and values
+            // Normalize keys and values
             const normalizedObj = {};
             Object.entries(obj).forEach(([key, value]) => {
-                // Normalize keys
                 const normalizedKey = key.toLowerCase().replace(/\s+/g, ' ');
-                
-                // Normalize values (if it's a string)
                 let normalizedValue = value;
                 if (typeof value === 'string') {
                     normalizedValue = value.toLowerCase().replace(/\s+/g, ' ');
                 }
-                
                 normalizedObj[normalizedKey] = normalizedValue;
             });
 
             return normalizedObj;
         });
 
-            console.log("Extracted Data:", data);
+        // Remove duplicates based on email
+        const uniqueData = Array.from(
+            new Map(data.map((item) => [item.email, item])).values()
+        );
 
-            // Step 2: Upload Data to Supabase
+        console.log("Processed Data:", uniqueData);
 
-            for (const row of data) {
-                // console.log(row);
-                const email = row.email;
-                console.log(email)
-                const formData = new FormData();
-                        Object.entries(row).forEach(([key, value]) => {
-                            formData.append(key, value);
-                        });
-                console.log(formData);
-                const { data: existingRows, error: fetchError } = await supabase
-                    .from('contacts')
-                    .select('email') // Select only the email column to reduce data fetched
-                    .eq('email', email); // Filter for the specific email
+        // Step 2: Upload Data to Supabase
+        for (const row of uniqueData) {
+            const email = row.email;
 
-                if (fetchError) {
-                    console.error("Error checking email existence:", fetchError);
-                    
-                    continue;
-                }
+            // Check if email exists in the database
+            const { data: existingRows, error: fetchError } = await supabase
+                .from('contacts')
+                .select('email')
+                .eq('email', email);
 
-                if (existingRows.length > 0) {
-                    // Email exists in the database
-                    const existingData = existingRows[0];
-                    console.log(`Email already exists: ${email}`);
-                    
-                    const userConfirmed = confirm(
-                        `The email ${email} already exists in the database.\n` +
-                        `Do you want to overwrite the existing data?\n\n` +
-                        `Existing Data: ${JSON.stringify(existingData, null, 2)}\n` +
-                        `New Data: ${JSON.stringify(row, null, 2)}`
-                    );
-
-                    if (userConfirmed) {
-                        
-
-                        const resp = await fetch('/crm', {
-                            method: 'PUT',
-                            body: formData,
-                        });
-
-                        if (resp.ok) {
-                            console.log("Update Successful");
-                        } else {
-                            console.log("Update failed")
-                        }
-                    } 
-                } else {
-
-                    const resp = await fetch('/crm', {
-                        method:'POST',
-                        body: formData,
-                    });
-
-                    if (resp.ok) {
-                        console.log("Upload Successful");
-                    } else {
-                        console.log("Upload failed");
-                    }
-                }
-
-                location.reload();
-
+            if (fetchError) {
+                console.error("Error checking email existence:", fetchError);
+                alert('An error occurred while verifying existing emails.');
+                continue;
             }
-        } catch (error) {
-            console.error("Error uploading data:", error.message);
-            alert('Failed to upload the file.');
+
+            // Handle email existence
+            if (existingRows.length > 0) {
+                const userConfirmed = confirm(
+                    `The email ${email} already exists in the database.\n` +
+                    `Do you want to overwrite the existing data?`
+                );
+
+                if (userConfirmed) {
+                    await updateContact(row);
+                } else {
+                    console.log(`Skipped update for email: ${email}`);
+                }
+            } else {
+                await createContact(row);
+            }
         }
+
+        alert('Upload process completed.');
+        location.reload(); // Reload after processing all rows
+    } catch (error) {
+        console.error("Error uploading data:", error.message);
+        alert('Failed to upload the file.');
     }
+}
+
+async function createContact(row) {
+    const formData = new FormData();
+    Object.entries(row).forEach(([key, value]) => formData.append(key, value));
+
+    const resp = await fetch('/crm', {
+        method: 'POST',
+        body: formData,
+    });
+
+    if (resp.ok) {
+        console.log("Upload Successful for:", row.email);
+    } else {
+        console.error("Upload failed for:", row.email);
+    }
+}
+
+async function updateContact(row) {
+    const formData = new FormData();
+    Object.entries(row).forEach(([key, value]) => formData.append(key, value));
+
+    const resp = await fetch('/crm', {
+        method: 'PUT',
+        body: formData,
+    });
+
+    if (resp.ok) {
+        console.log("Update Successful for:", row.email);
+    } else {
+        console.error("Update failed for:", row.email);
+    }
+}
+
 
     function exportToExcel() {
         if (!data || !data.data || data.data.length === 0) {
