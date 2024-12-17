@@ -6,7 +6,7 @@
     export let data; // Received from the server load function
     let chartInstance; // To manage the Chart.js instance
     let chartContainer;
-    let selectedField = "tags"; // Default field
+    let selectedField = "builtsearchUrl"; // Default field
     let filteredData = data.data; // Dynamic data for the table
 
     let showRows = 10;
@@ -32,6 +32,8 @@
         builtsearchUrl: row.builtsearchUrl,
         pspc_cat: row.pspc_cat
     }));
+
+    let selectedBar = null;
 
     // function handleShowRowsChange(event) {
     //     showRows = parseInt(event.target.value);
@@ -66,117 +68,132 @@
     // }
 
     // List of fields to choose from
-    let fields = [
-        "company_name", "email", "first_name", "last_name", "tags",
-        "whatsapps", "contact", "country", "company_reg", "website",
-        "pspc_cat", "instagram", "facebook", "builtsearchUrl"
+
+    const visibleFields = ["company_name", "email","contact", "first_name", "last_name", "tags"]; 
+
+    const fields = [
+        { value: "company_name", label: "Company Name" },
+        { value: "email", label: "Email" },
+        { value: "contact", label: "Contact No." },
+        { value: "first_name", label: "First Name" },
+        { value: "last_name", label: "Last Name" },
+        { value: "tags", label: "Tags" },
+        { value: "country", label: "Country" },
+        { value: "website", label:"Website" },
+        { value: "facebook", label:"Facebook" },
+        { value: "instagram", label:"Instagram" },
+        { value: "whatsapps", label:"Whatsapp" },
+        { value: "company_reg", label:"Company Reg." },
+        { value: "pspc_cat", label:"PSPC Category" },
+        { value:"builtsearchUrl", label:"BuiltSearch URL"}
     ];
 
     // Process data to create different charts for specific fields like "country" and "tags"
     function processData() {
-        let chartData = { labels: [], data: [] };
+    let chartData = { labels: [], data: [] };
 
-        const actualData = data.data; // Access the actual data array
-
-        if (Array.isArray(actualData)) {
-            if (selectedField === "country") {
-                const countryCount = {};
-                actualData.forEach((record) => {
-                    const country = record[selectedField];
-                    if (country) {
-                        countryCount[country] = (countryCount[country] || 0) + 1;
-                    }
-                });
-                chartData.labels = Object.keys(countryCount);
-                chartData.data = Object.values(countryCount);
-            } else if (selectedField === "tags") {
-                const tagCount = {};
-                actualData.forEach((record) => {
-                    const tags = record[selectedField];
-                    if (tags) {
-                        const tagList = Array.isArray(tags) ? tags : tags.split(",");
-                        tagList.forEach((tag) => {
-                            tag = tag.trim();
-                            tagCount[tag] = (tagCount[tag] || 0) + 1;
-                        });
-                    } else {
-                        tagCount["Empty Field"] = (tagCount["Empty Field"] || 0) + 1;
-                    }
-                });
-                chartData.labels = Object.keys(tagCount);
-                chartData.data = Object.values(tagCount);
-            } else {
-                const filledCount = actualData.filter(record => record[selectedField]);
-                chartData.labels = ["Filled Fields", "Empty Fields"];
-                chartData.data = [filledCount.length, actualData.length - filledCount.length];
-            }
+    const actualData = data.data; // Access the actual data array
+    if (Array.isArray(actualData)) {
+        if (selectedField === "country") {
+            const countryCount = {};
+            actualData.forEach((record) => {
+                const country = record[selectedField];
+                if (country) {
+                    countryCount[country] = (countryCount[country] || 0) + 1;
+                }
+            });
+            chartData.labels = Object.keys(countryCount);
+            chartData.data = Object.values(countryCount);
+        } else if (selectedField === "tags") {
+            const tagCount = {};
+            actualData.forEach((record) => {
+                const tags = record[selectedField];
+                if (tags) {
+                    const tagList = Array.isArray(tags) ? tags : tags.split(",");
+                    tagList.forEach((tag) => {
+                        tag = tag.trim();
+                        tagCount[tag] = (tagCount[tag] || 0) + 1;
+                    });
+                } else {
+                    tagCount["Empty Field"] = (tagCount["Empty Field"] || 0) + 1;
+                }
+            });
+            chartData.labels = Object.keys(tagCount);
+            chartData.data = Object.values(tagCount);
+        } else {
+            const filledCount = actualData.filter(record => record[selectedField]);
+            chartData.labels = ["Filled Fields", "Empty Fields"];
+            chartData.data = [filledCount.length, actualData.length - filledCount.length];
         }
-
-        return chartData;
     }
 
-    // Function to update chart data and filter table data
-    function updateChartData() {
-    // Update chart
+    return chartData;
+}
+
+// Function to filter table data based on the clicked bar's label
+function filterTableData(clickedLabel) {
+    if (selectedField === "country" || selectedField === "tags") {
+        filteredData = data.data.filter((record) => {
+            const fieldValue = record[selectedField];
+            if (selectedField === "tags") {
+                const tagList = Array.isArray(fieldValue) ? fieldValue : (fieldValue || "").split(",");
+                return tagList.map(tag => tag.trim()).includes(clickedLabel);
+            }
+            return fieldValue === clickedLabel;
+        });
+    }
+
+    if (filteredData.length === 0) {
+        filteredData = [{ [selectedField]: "No matching rows found" }];
+    }
+}
+
+// Update chart data and allow clicks on bars
+function updateChartData() {
     if (chartInstance) {
         const chartData = processData();
         chartInstance.data.labels = chartData.labels;
         chartInstance.data.datasets[0].data = chartData.data;
-
         chartInstance.update();
     }
 
-    // Filter table data for null or empty rows
-    filteredData = data.data.filter(record => {
-        const fieldValue = record[selectedField];
-        if (Array.isArray(fieldValue)) {
-            // Check for empty arrays
-            return fieldValue.length === 0;
-        }
-        return !fieldValue || fieldValue === ""; // Null, undefined, or empty strings
-    });
-
-    // If no rows match, show a placeholder message
+    filteredData = data.data.filter(record => !record[selectedField]);
     if (filteredData.length === 0) {
         filteredData = [{ [selectedField]: "No rows with null or empty values" }];
     }
 }
 
+onMount(() => {
+    const chartData = processData();
 
-
-    // Initialize the chart in onMount
-    onMount(() => {
-        const chartData = processData(); // Get initial data
-
-        chartInstance = new Chart(chartContainer, {
-            type: "bar",
-            data: {
-                labels: chartData.labels, // Dynamic labels
-                datasets: [
-                    {
-                        label: `${selectedField.charAt(0).toUpperCase() + selectedField.slice(1)} Distribution`,
-                        data: chartData.data, // Dynamic data
-                        backgroundColor: "#4caf50",
-                    },
-                ],
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: { display: true },
+    chartInstance = new Chart(chartContainer, {
+        type: "bar",
+        data: {
+            labels: chartData.labels,
+            datasets: [
+                {
+                    label: `${selectedField} Distribution`,
+                    data: chartData.data,
+                    backgroundColor: "#4caf50",
                 },
-                maintainAspectRatio: false
-            },
-        });
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            onClick: (event, elements) => {
+                if (elements.length > 0) {
+                    const clickedIndex = elements[0].index;
+                    const clickedLabel = chartInstance.data.labels[clickedIndex];
+                    selectedBar = clickedLabel; // Update the selected bar
 
-        return () => {
-            // Clean up chart instance on destroy
-            if (chartInstance) {
-                chartInstance.destroy();
-                chartInstance = null;
-            }
-        };
+                    // Filter table data based on the clicked bar
+                    filterTableData(clickedLabel);
+                }
+            },
+        },
     });
+});
 </script>
 
 <style lang="scss">
@@ -321,7 +338,7 @@
         <label for="field-select">Select Field to Inspect:</label>
         <select id="field-select" bind:value={selectedField} on:change={updateChartData}>
             {#each fields as field}
-                <option value={field}>{field}</option>
+                <option value={field.value}>{field.label}</option>
             {/each}
         </select>
     </div>
@@ -333,114 +350,59 @@
 
     <!-- Table -->
    <!-- Table -->
-<table class="table">
+   <table>
     <thead>
         <tr>
-            <th>
-                <div class="header-content">
-                    <span>Company Name</span>
-                </div>
-            </th>
-            <th>
-                <div class="header-content">
-                    <span>Email</span>
-                </div>
-            </th>
-            <th>
-                <div class="header-content">
-                    <span>First Name</span>
-                </div>
-            </th>
-            <th>
-                <div class="header-content">
-                    <span>Last Name</span>
-                </div>
-            </th>
-            <th>
-                <div class="header-content">
-                    <span>Tags</span>
-                </div>
-            </th>
-            <th>
-                <div class="header-content">
-                    <span>Whatsapps</span>
-                </div>
-            </th>
-            <th>
-                <div class="header-content">
-                    <span>Contact</span>
-                </div>
-            </th>
-            <th>
-                <div class="header-content">
-                    <span>Country</span>
-                </div>
-            </th>
-            <th>
-                <div class="header-content">
-                    <span>Company Reg</span>
-                </div>
-            </th>
-            <th>
-                <div class="header-content">
-                    <span>Website</span>
-                </div>
-            </th>
-            <th>
-                <div class="header-content">
-                    <span>PSPC Category</span>
-                </div>
-            </th>
-            <th>
-                <div class="header-content">
-                    <span>Instagram</span>
-                </div>
-            </th>
-            <th>
-                <div class="header-content">
-                    <span>Facebook</span>
-                </div>
-            </th>
-            <th>
-                <div class="header-content">
-                    <span>BuiltSearch URL</span>
-                </div>
-            </th>
+            {#if visibleFields.includes("company_name")}
+                <th>Company Name</th>
+            {/if}
+            {#if visibleFields.includes("email")}
+                <th>Email</th>
+            {/if}
+            {#if visibleFields.includes("contact")}
+                <th>Contact</th>
+            {/if}
+            {#if visibleFields.includes("first_name")}
+                <th>First Name</th>
+            {/if}
+            {#if visibleFields.includes("last_name")}
+                <th>Last Name</th>
+            {/if}
+            {#if visibleFields.includes("tags")}
+                <th>Tags</th>
+            {/if}
+            {#if selectedField && !visibleFields.includes(selectedField)}
+                <th>{fields.find(f => f.value === selectedField)?.label}</th>
+            {/if}
         </tr>
     </thead>
     <tbody>
         {#each filteredData as record}
             <tr>
-                <td class="{record.company_name ? '' : 'empty'}">{record.company_name || "Empty"}</td>
-                <td class="{record.email ? '' : 'empty'}">{record.email || "Empty"}</td>
-                <td class="{record.first_name ? '' : 'empty'}">{record.first_name || "Empty"}</td>
-                <td class="{record.last_name ? '' : 'empty'}">{record.last_name || "Empty"}</td>
-                <td>
-                    <div class="tags-field">
-                        {#if record.tags}
-                            {#each record.tags.split(",") as tag}
-                                <span class="tag">{tag.trim()}</span>
-                            {/each}
-                        {:else}
-                            <span class="empty">Empty</span>
-                        {/if}
-                    </div>
-                </td>
-                <td class="{record.whatsapps ? '' : 'empty'}">{record.whatsapps || "Empty"}</td>
-                <td class="{record.contact ? '' : 'empty'}">{record.contact || "Empty"}</td>
-                <td class="{record.country ? '' : 'empty'}">{record.country || "Empty"}</td>
-                <td class="{record.company_reg ? '' : 'empty'}">{record.company_reg || "Empty"}</td>
-                <td class="{record.website ? '' : 'empty'}">{record.website || "Empty"}</td>
-                <td class="{record.pspc_cat ? '' : 'empty'}">{record.pspc_cat || "Empty"}</td>
-                <td class="{record.instagram ? '' : 'empty'}">{record.instagram || "Empty"}</td>
-                <td class="{record.facebook ? '' : 'empty'}">{record.facebook || "Empty"}</td>
-                <td class="{record.builtsearchUrl ? '' : 'empty'}">{record.builtsearchUrl || "Empty"}</td>
+                {#if visibleFields.includes("company_name")}
+                    <td>{record.company_name || "Empty"}</td>
+                {/if}
+                {#if visibleFields.includes("email")}
+                    <td>{record.email || "Empty"}</td>
+                {/if}
+                {#if visibleFields.includes("contact")}
+                    <td>{record.contact || "Empty"}</td>
+                {/if}
+                {#if visibleFields.includes("first_name")}
+                    <td>{record.first_name || "Empty"}</td>
+                {/if}
+                {#if visibleFields.includes("last_name")}
+                    <td>{record.last_name || "Empty"}</td>
+                {/if}
+                {#if visibleFields.includes("tags")}
+                    <td>{record.tags || "Empty"}</td>
+                {/if}
+                {#if selectedField && !visibleFields.includes(selectedField)}
+                    <td>{record[selectedField] || "Empty"}</td>
+                {/if}
             </tr>
         {/each}
     </tbody>
-    
-    
-    
 </table>
 
 <!-- <div class="controls">

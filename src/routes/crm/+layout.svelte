@@ -40,15 +40,21 @@
     <div class="sidebar">
         {#if isOpen===true}
         <div class="content">
-            <div class="add" on:click={() => navtigate('/crm')}>
-                Home
-            </div>
-            <div class="add" on:click={() => navtigate('/crm/add')}>
-                Add row
-            </div>
-            <div class="dashboard" on:click={() => navtigate('/crm/dashboard')}>
-                Dashboard
-            </div>
+            <a href="/crm">
+                <div class="add">
+                    Home
+                </div>
+            </a>
+            <a href="/crm/add">
+                <div class="add">
+                    Add row
+                </div>
+            </a>
+            <a href="/crm/dashboard">
+                <div class="dashboard">
+                    Dashboard
+                </div>
+            </a>
             <div class="logout" on:click={handleLogout}>
                 Logout
             </div>
@@ -72,6 +78,11 @@
     main {
         display: flex;
         font-family: 'Poppins';
+
+        a {
+            text-decoration: none;
+            color: black;
+        }
 
         .sidebar {
             display: relative;

@@ -101,6 +101,41 @@
         { value: "supplier", label: "Supplier"}
     ];
 
+    function exportToVCF() {
+    if (!data || !data.data || data.data.length === 0) {
+        alert("No contacts available to export.");
+        return;
+    }
+
+    // Generate vCard entries for all contacts
+    const vCardEntries = data.data.map(contact => {
+        return `
+BEGIN:VCARD
+VERSION:3.0
+N:${contact.last_name || ''};${contact.first_name || ''};;;
+FN:${contact.first_name || ''} ${contact.last_name || ''}
+EMAIL:${contact.email || ''}
+TEL;TYPE=CELL:${contact.contact || ''}
+ORG:${contact.company_name || ''}
+ADR:;;${contact.company_reg || ''};;;${contact.country || ''};
+URL:${contact.website || ''}
+NOTE:Tags - ${contact.tags || ''}
+END:VCARD
+        `.trim();
+    });
+
+    // Combine all entries into a single string
+    const vCardContent = vCardEntries.join("\n");
+
+    // Create a blob and trigger download
+    const blob = new Blob([vCardContent], { type: "text/vcard;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "contacts.vcf";
+    link.click();
+}
+
+
     function handleShowRowsChange(event) {
         showRows = parseInt(event.target.value);
         totalPages = Math.ceil(rows.length / showRows);
@@ -427,9 +462,13 @@ async function updateContact(row) {
             <div on:click={exportToExcel} class="export">
                 Export Excel
             </div>
+
+            <div on:click={exportToVCF} class="export">
+                Export VCF
+            </div>
         </div>
         <div class="header">
-            <p>Contact</p>
+            <p>Contact ({rows.length})</p>
             <div class="functions">
                 <div class="search-field">
                     <input
