@@ -49,11 +49,11 @@
     console.log("totalpages:",totalPages);
 
     let checkedFields = {
-        company_name: true,  // Default to true (checked)
+        company_name: false,  // Default to true (checked)
         email: true,         // Default to true (checked)
-        contact: true,       // Default to true (checked)
+        contact: false,       // Default to true (checked)
         first_name: true,    // Default to true (checked)
-        last_name: true,     // Default to true (checked)
+        last_name: false,     // Default to true (checked)
         country: false,      // Country default is unchecked
         website: false,
         facebook: false,
@@ -61,7 +61,8 @@
         whatsapps: false,
         company_reg: false,
         pspc_cat: false,
-        tags: true,
+        builtsearchUrl: false,
+        tags: false,
     };
 
     let sortConfig = {
@@ -70,14 +71,15 @@
     };
 
     const show_fields = [
-        { value: "company_name", label: "Company Name" },
         { value: "email", label: "Email" },
-        { value: "contact", label: "Contact No." },
-        { value: "first_name", label: "First Name" },
-        { value: "last_name", label: "Last Name" }
+        { value: "first_name", label: "First Name" }
     ];
 
     const hidden_fields = [
+        { value: "company_name", label: "Company Name" },
+        { value: "contact", label: "Contact No." },
+        { value: "last_name", label: "Last Name" },
+        { value: "tags", label: "Tags" },
         { value: "country", label: "Country" },
         { value: "website", label:"Website" },
         { value: "facebook", label:"Facebook" },
