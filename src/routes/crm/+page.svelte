@@ -102,38 +102,56 @@
     ];
 
     function exportToVCF() {
-    if (!data || !data.data || data.data.length === 0) {
-        alert("No contacts available to export.");
-        return;
+        if (!data || !data.data || data.data.length === 0) {
+            alert("No contacts available to export.");
+            return;
+        }
+        // Generate vCard entries for all contacts
+        const vCardEntries = data.data.map(contact => {
+            return `
+        BEGIN:VCARD
+        VERSION:3.0
+        N:${contact.last_name || ''};${contact.first_name || ''};;;
+        FN:${contact.first_name || ''} ${contact.last_name || ''}
+        EMAIL:${contact.email || ''}
+        TEL;TYPE=CELL:${contact.contact || ''}
+        ORG:${contact.company_name || ''}
+        ADR:;;${contact.company_reg || ''};;;${contact.country || ''};
+        URL:${contact.website || ''}
+        NOTE:Tags - ${contact.tags || ''}
+        END:VCARD
+                `.trim();
+            });
+
+        // Combine all entries into a single string
+        const vCardContent = vCardEntries.join("\n");
+
+        // Create a blob and trigger download
+        const blob = new Blob([vCardContent], { type: "text/vcard;charset=utf-8" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "contacts.vcf";
+        link.click();
     }
 
-    // Generate vCard entries for all contacts
-    const vCardEntries = data.data.map(contact => {
-        return `
-BEGIN:VCARD
-VERSION:3.0
-N:${contact.last_name || ''};${contact.first_name || ''};;;
-FN:${contact.first_name || ''} ${contact.last_name || ''}
-EMAIL:${contact.email || ''}
-TEL;TYPE=CELL:${contact.contact || ''}
-ORG:${contact.company_name || ''}
-ADR:;;${contact.company_reg || ''};;;${contact.country || ''};
-URL:${contact.website || ''}
-NOTE:Tags - ${contact.tags || ''}
-END:VCARD
-        `.trim();
-    });
-
-    // Combine all entries into a single string
-    const vCardContent = vCardEntries.join("\n");
-
-    // Create a blob and trigger download
-    const blob = new Blob([vCardContent], { type: "text/vcard;charset=utf-8" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "contacts.vcf";
-    link.click();
-}
+    const copyEmailToClipboard = (email) => {
+        if (navigator.clipboard) {
+        navigator.clipboard.writeText(email).then(() => {
+            alert('Email copied to clipboard!');
+        }).catch((err) => {
+            alert('Failed to copy email: ' + err);
+        });
+        } else {
+        // Fallback for unsupported browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = email;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        alert('Email copied to clipboard!');
+        }
+    };
 
 
     function handleShowRowsChange(event) {
@@ -209,7 +227,7 @@ END:VCARD
         }
         }
 
-        async function upload(file) {
+    async function upload(file) {
         try {
         // Step 1: Parse Excel File
         const rows = await readXlsxFile(file);
@@ -281,39 +299,39 @@ END:VCARD
         console.error("Error uploading data:", error.message);
         alert('Failed to upload the file.');
     }
-}
-
-async function createContact(row) {
-    const formData = new FormData();
-    Object.entries(row).forEach(([key, value]) => formData.append(key, value));
-
-    const resp = await fetch('/crm', {
-        method: 'POST',
-        body: formData,
-    });
-
-    if (resp.ok) {
-        console.log("Upload Successful for:", row.email);
-    } else {
-        console.error("Upload failed for:", row.email);
     }
-}
 
-async function updateContact(row) {
-    const formData = new FormData();
-    Object.entries(row).forEach(([key, value]) => formData.append(key, value));
+    async function createContact(row) {
+        const formData = new FormData();
+        Object.entries(row).forEach(([key, value]) => formData.append(key, value));
 
-    const resp = await fetch('/crm', {
-        method: 'PUT',
-        body: formData,
-    });
+        const resp = await fetch('/crm', {
+            method: 'POST',
+            body: formData,
+        });
 
-    if (resp.ok) {
-        console.log("Update Successful for:", row.email);
-    } else {
-        console.error("Update failed for:", row.email);
+        if (resp.ok) {
+            console.log("Upload Successful for:", row.email);
+        } else {
+            console.error("Upload failed for:", row.email);
+        }
     }
-}
+
+    async function updateContact(row) {
+        const formData = new FormData();
+        Object.entries(row).forEach(([key, value]) => formData.append(key, value));
+
+        const resp = await fetch('/crm', {
+            method: 'PUT',
+            body: formData,
+        });
+
+        if (resp.ok) {
+            console.log("Update Successful for:", row.email);
+        } else {
+            console.error("Update failed for:", row.email);
+        }
+    }
 
 
     function exportToExcel() {
@@ -445,207 +463,205 @@ async function updateContact(row) {
 
 <div class="body">
     <div class="contact">
-        <div class="import-export">
-            <div class="import">
-                <label for="import-file" class="import-button">
-                    Import Excel
-                </label>
-                <input
-                    id="import-file"
-                    type="file"
-                    accept=".xlsx, .xls"
-                    on:change={handleFileUpload}
-                    
-                    style="display: none;"
-                />
-            </div>
-            <div on:click={exportToExcel} class="export">
-                Export Excel
-            </div>
-
-            <div on:click={exportToVCF} class="export">
-                Export VCF
-            </div>
+      <div class="import-export">
+        <div class="import">
+          <label for="import-file" class="import-button">
+            Import Excel
+          </label>
+          <input
+            id="import-file"
+            type="file"
+            accept=".xlsx, .xls"
+            on:change={handleFileUpload}
+            style="display: none;"
+          />
         </div>
-        <div class="header">
-            <p>Contact ({rows.length})</p>
-            <div class="functions">
-                <div class="search-field">
-                    <input
-                    bind:value={searchTerm}
-                    type="search"
-                    placeholder="Search..."
-                    on:input={search} 
-                    />
+        <div on:click={exportToExcel} class="export">
+          Export Excel
+        </div>
+  
+        <div on:click={exportToVCF} class="export">
+          Export VCF
+        </div>
+      </div>
+      <div class="header">
+        <p>Contact ({rows.length})</p>
+        <div class="functions">
+          <div class="search-field">
+            <input
+              bind:value={searchTerm}
+              type="search"
+              placeholder="Search..."
+              on:input={search} 
+            />
+          </div>
+          <div class="filter">
+            <button on:click={toggleHiddenFields}>
+              <Icon icon="mdi:filter" height="1rem" width="1rem"></Icon>
+            </button>
+            <div class="hidden-fields {showHiddenFields ? 'visible' : ''}">
+              {#each hidden_fields as field}
+                <div class="hidden-item">
+                  <input
+                    type="checkbox"
+                    id={field.value}
+                    bind:checked={checkedFields[field.value]}
+                  />
+                  {field.label}
                 </div>
-                
-                <div class="filter">
-                    <button on:click={toggleHiddenFields}>
-                        <Icon icon="mdi:filter" height="1rem" width="1rem"></Icon>
-                    </button>
-                    <div class="hidden-fields {showHiddenFields ? 'visible' : ''}">
-                        {#each hidden_fields as field}
-                            <div class="hidden-item">
-                                <input
-                                    type="checkbox"
-                                    id={field.value}
-                                    bind:checked={checkedFields[field.value]}
-                                />
-                                {field.label}
-                            </div>
-                        {/each}
+              {/each}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="table">
+        <table>
+          <thead>
+            <tr>
+              {#each Object.keys(checkedFields) as key (key)}
+                {#if checkedFields[key]}
+                  <th>
+                    <div class="header-content" on:click={() => sortData(key)}>
+                      {key.replace('_', ' ').toUpperCase()}
+                      <div class="sort">
+                        {#if sortConfig.key === key}
+                          {#if sortConfig.direction === 'asc'}
+                            <Icon icon="akar-icons:arrow-up" />
+                          {:else}
+                            <Icon icon="akar-icons:arrow-down" />
+                          {/if}
+                        {/if}
+                      </div>
                     </div>
-                </div>
-            </div>
-        </div>
-        <div class="table">
-            <table>
-                <thead>
-                    <tr>
-                        {#each Object.keys(checkedFields) as key (key)}
-                            {#if checkedFields[key]}
-                                <th>
-                                    <div class="header-content" on:click={() => sortData(key)}>
-                                        {key.replace('_', ' ').toUpperCase()}
-
-                                        <div class="sort">
-                                            <!-- Show sort icon based on the current column and direction -->
-                                            {#if sortConfig.key === key}
-                                                {#if sortConfig.direction === 'asc'}
-                                                    <Icon icon="akar-icons:arrow-up" />
-                                                {:else}
-                                                    <Icon icon="akar-icons:arrow-down" />
-                                                {/if}
-                                            {/if}
-                                        </div>
-                                    </div>
-                                </th>
-                            {/if}
-                        {/each}
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {#each data.data as item (item.id)}
-                    <tr>
-                        {#each Object.keys(checkedFields) as key (key)}
-                            {#if checkedFields[key]}
-                                <td>
-                                    {#if editingRow === item.id}
-                                        <input
-                                            type="text"
-                                            bind:value={editedData[key]}
-                                        />
-                                    {:else}
-                                        {#if key === 'tags'}
-                                            {#if item[key]}
-                                            <div class="tags-field">
-                                                {#each item[key].split(',') as tag}
-                                                    <span class="tag">
-                                                        {tags.find(t => t.value === tag.trim().toLowerCase())?.label || tag}
-                                                    </span>{' '}
-                                                {/each}
-                                            </div>
-                                            {:else}
-                                                N/A
-                                            {/if}
-                                        {:else if key === 'contact'}
-                                            {#if item[key]}
-                                                <a href={`tel:${item[key]}`} target="_blank" rel="noopener noreferrer">
-                                                    {item[key]}
-                                                </a>
-                                            {:else}
-                                                N/A
-                                            {/if}
-                                        {:else if key === 'whatsapps'}
-                                            {#if item[key]}
-                                                <a href={`https://wa.me/${item[key]}`} target="_blank" rel="noopener noreferrer">
-                                                    {item[key]}
-                                                </a>
-                                            {:else}
-                                                N/A
-                                            {/if}
-                                        {:else if key === 'website' || key === 'builtsearchUrl'}
-                                            {#if item[key]}
-                                                <a href={item[key]} target="_blank" rel="noopener noreferrer">
-                                                    {item[key]}
-                                                </a>
-                                            {:else}
-                                                N/A
-                                            {/if}
-                                        {:else}
-                                            {item[key]}
-                                        {/if}
-                                    {/if}
-                                </td>
-                            {/if}
-                        {/each}
-                        <td>
-                            <div class="actions">
-                                {#if editingRow === item.id}
-                                    <button on:click={saveRow} class="save-button">
-                                        Save
-                                    </button>
-                                    <button on:click={cancelEdit} class="cancel-button">
-                                        Cancel
-                                    </button>
-                                {:else}
-                                    <button on:click={() => editRow(item)} class="edit-button">
-                                        <Icon icon="typcn:edit" width="24" height="24"></Icon>
-                                    </button>
-                                    <button on:click={() => deleteRow(item.email)} class="delete-button">
-                                        <Icon icon="material-symbols:delete-outline" width="24" height="24" style="color: #e9686a"></Icon>
-                                    </button>
-                                {/if}
+                  </th>
+                {/if}
+              {/each}
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each data.data as item (item.id)}
+              <tr>
+                {#each Object.keys(checkedFields) as key (key)}
+                  {#if checkedFields[key]}
+                    <td>
+                      {#if editingRow === item.id}
+                        <input
+                          type="text"
+                          bind:value={editedData[key]}
+                        />
+                      {:else}
+                        {#if key === 'tags'}
+                          {#if item[key]}
+                            <div class="tags-field">
+                              {#each item[key].split(',') as tag}
+                                <span class="tag">
+                                  {tags.find(t => t.value === tag.trim().toLowerCase())?.label || tag}
+                                </span>{' '}
+                              {/each}
                             </div>
-                        </td>
-                    </tr>
-                    {/each}
-                </tbody>
-            </table>
-        </div>
-
-        <div class="controls">
-            <div class="show-rows">
-                <label for="rows-select">Show rows:</label>
-                <select name="rows-select" on:change={handleShowRowsChange}>
-                    <option value="10">10</option>
-                    <option value="20">20</option>
-                    <option value="50">50</option>
-                </select>
-            </div>
-            <div class="pagination">
-                <button
-                    on:click={previousPage}
-                    class="page-number {currentPage === 1 ? 'disabled' : ''}"
-                    disabled={currentPage === 1}>
-                    <Icon icon="line-md:arrow-small-left" />
-                </button>
-
-                {#each Array(totalPages) as _, index}
-                    {#if index +1 === currentPage}
-                        <span class="page-number current">{index+1}</span>
-                    {:else}
-                        <button
-                            on:click={() => {
-                                currentPage = index + 1;
-                                updateTableData()
-                                
-                            }}
-                            class="page-number">
-                            {index + 1}
-                        </button>
-                    {/if}
+                          {:else}
+                            N/A
+                          {/if}
+                        {:else if key === 'contact'}
+                          {#if item[key]}
+                            <a href={`tel:${item[key]}`} target="_blank" rel="noopener noreferrer">
+                              {item[key]}
+                            </a>
+                          {:else}
+                            N/A
+                          {/if}
+                        {:else if key === 'whatsapps'}
+                          {#if item[key]}
+                            <a href={`https://wa.me/${item[key]}`} target="_blank" rel="noopener noreferrer">
+                              {item[key]}
+                            </a>
+                          {:else}
+                            N/A
+                          {/if}
+                        {:else if key === 'website' || key === 'builtsearchUrl'}
+                          {#if item[key]}
+                            <a href={item[key]} target="_blank" rel="noopener noreferrer">
+                              {item[key]}
+                            </a>
+                          {:else}
+                            N/A
+                          {/if}
+                        {:else if key === 'email'}
+                          <div on:click={copyEmailToClipboard(item[key])}  class="copy-email">
+                            {item[key]}
+                          </div>
+                        {:else}
+                          {item[key]}
+                        {/if}
+                      {/if}
+                    </td>
+                  {/if}
                 {/each}
-
-                <button on:click={nextPage} class="page-number" disabled={currentPage === totalPages}>
-                    <Icon icon="line-md:arrow-small-right" />
-
-                </button>
-            </div>
+                <td>
+                  <div class="actions">
+                    {#if editingRow === item.id}
+                      <button on:click={saveRow} class="save-button">
+                        Save
+                      </button>
+                      <button on:click={cancelEdit} class="cancel-button">
+                        Cancel
+                      </button>
+                    {:else}
+                      <button on:click={() => editRow(item)} class="edit-button">
+                        <Icon icon="typcn:edit" width="24" height="24"></Icon>
+                      </button>
+                      <button on:click={() => deleteRow(item.email)} class="delete-button">
+                        <Icon icon="material-symbols:delete-outline" width="24" height="24" style="color: #e9686a"></Icon>
+                      </button>
+                    {/if}
+                  </div>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+  
+      <div class="controls">
+        <div class="show-rows">
+          <label for="rows-select">Show rows:</label>
+          <select name="rows-select" on:change={handleShowRowsChange}>
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+          </select>
         </div>
+        <div class="pagination">
+          <button
+            on:click={previousPage}
+            class="page-number {currentPage === 1 ? 'disabled' : ''}"
+            disabled={currentPage === 1}>
+            <Icon icon="line-md:arrow-small-left" />
+          </button>
+  
+          {#each Array(totalPages) as _, index}
+            {#if index +1 === currentPage}
+              <span class="page-number current">{index+1}</span>
+            {:else}
+              <button
+                on:click={() => {
+                  currentPage = index + 1;
+                  updateTableData()
+                }}
+                class="page-number">
+                {index + 1}
+              </button>
+            {/if}
+          {/each}
+  
+          <button on:click={nextPage} class="page-number" disabled={currentPage === totalPages}>
+            <Icon icon="line-md:arrow-small-right" />
+          </button>
+        </div>
+      </div>
     </div>
-</div>
+  </div>
 
 <style lang="scss">
     .body {
@@ -820,6 +836,12 @@ async function updateContact(row) {
                     padding: 1rem;
                     flex-wrap: nowrap;
                     border-bottom: 1px solid #82868F;
+                }
+
+                .copy-email {
+                    cursor: pointer;
+                    color: blue;
+                    text-decoration: underline;
                 }
 
                 .tags-field {
