@@ -41,7 +41,8 @@
         website: row.website,
         whatsapps: row.whatsapps,
         builtsearchUrl: row.builtsearchUrl,
-        pspc_cat: row.pspc_cat
+        pspc_cat: row.pspc_cat,
+        // date_modified: row.date_modified
     }));
 
     console.log(data.data.length)
@@ -49,11 +50,11 @@
     console.log("totalpages:",totalPages);
 
     let checkedFields = {
-        company_name: false,  // Default to true (checked)
+        company_name: true,  // Default to true (checked)
         email: true,         // Default to true (checked)
-        contact: false,       // Default to true (checked)
+        contact: true,       // Default to true (checked)
         first_name: true,    // Default to true (checked)
-        last_name: false,     // Default to true (checked)
+        last_name: true,     // Default to true (checked)
         country: false,      // Country default is unchecked
         website: false,
         facebook: false,
@@ -62,7 +63,8 @@
         company_reg: false,
         pspc_cat: false,
         builtsearchUrl: false,
-        tags: false,
+        tags: true,
+        // date_modified: true,
     };
 
     let sortConfig = {
@@ -104,26 +106,33 @@
     ];
 
     function exportToVCF() {
-        if (!data || !data.data || data.data.length === 0) {
-            alert("No contacts available to export.");
-            return;
-        }
+    if (!data || !data.data || !Array.isArray(data.data) || data.data.length === 0) {
+        alert("No contacts available to export.");
+        return;
+    }
+
+    // Utility function to sanitize fields
+    function sanitizeField(field) {
+        return field ? field.trim() : "";
+    }
+
+    try {
         // Generate vCard entries for all contacts
         const vCardEntries = data.data.map(contact => {
             return `
-        BEGIN:VCARD
-        VERSION:3.0
-        N:${contact.last_name || ''};${contact.first_name || ''};;;
-        FN:${contact.first_name || ''} ${contact.last_name || ''}
-        EMAIL:${contact.email || ''}
-        TEL;TYPE=CELL:${contact.contact || ''}
-        ORG:${contact.company_name || ''}
-        ADR:;;${contact.company_reg || ''};;;${contact.country || ''};
-        URL:${contact.website || ''}
-        NOTE:Tags - ${contact.tags || ''}
-        END:VCARD
-                `.trim();
-            });
+BEGIN:VCARD
+VERSION:3.0
+N:${sanitizeField(contact.last_name)};${sanitizeField(contact.first_name)};;;
+FN:${sanitizeField(contact.first_name)} ${sanitizeField(contact.last_name)}
+EMAIL:${sanitizeField(contact.email)}
+TEL;TYPE=CELL:${sanitizeField(contact.contact)}
+ORG:${sanitizeField(contact.company_name)}
+ADR:;;${sanitizeField(contact.company_reg)};;;${sanitizeField(contact.country)};
+URL:${sanitizeField(contact.website)}
+NOTE:Tags - ${sanitizeField(contact.tags)}
+END:VCARD
+            `.trim();
+        });
 
         // Combine all entries into a single string
         const vCardContent = vCardEntries.join("\n");
@@ -134,7 +143,14 @@
         link.href = URL.createObjectURL(blob);
         link.download = "contacts.vcf";
         link.click();
+
+        alert("Contacts exported successfully.");
+    } catch (error) {
+        console.error("Error exporting to VCF:", error.message);
+        alert("An error occurred while exporting contacts.");
     }
+}
+
 
     const copyEmailToClipboard = (email) => {
         if (navigator.clipboard) {
@@ -233,6 +249,7 @@
         try {
         // Step 1: Parse Excel File
         const rows = await readXlsxFile(file);
+        console.log(rows)
         const headers = rows[0]; // Extract headers from the first row
 
         const data = rows.slice(1).map((row) => {
@@ -261,6 +278,7 @@
         );
 
         console.log("Processed Data:", uniqueData);
+
 
         // Step 2: Upload Data to Supabase
         for (const row of uniqueData) {
@@ -619,6 +637,13 @@
                     {/if}
                   </div>
                 </td>
+                <!-- <td>
+                    {#if item.date_modified}
+                      {item.date_modified.toLocaleString()}
+                    {:else}
+                      N/A
+                    {/if}
+                  </td> -->
               </tr>
             {/each}
           </tbody>
@@ -663,7 +688,7 @@
         </div>
       </div>
     </div>
-  </div>
+</div>
 
 <style lang="scss">
     .body {

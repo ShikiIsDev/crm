@@ -3,6 +3,7 @@ import { json } from "@sveltejs/kit";
 
 export async function POST({ request }) {
     try {
+        console.log('post')
         const formData = await request.formData();
         const company_name = formData.get("company_name");
         const email = formData.get("email");
@@ -89,6 +90,8 @@ export async function PUT( { request }) {
         const instagram = formData.get("instagram");
         const facebook = formData.get("facebook");
         const builtsearchUrl = formData.get("builtsearch_url");
+        const date_modified = new Date().toISOString();
+        console.log(date_modified)
         
         const { error: updateError } = await supabase
             .from('contacts')
@@ -107,6 +110,7 @@ export async function PUT( { request }) {
                     instagram: instagram,
                     facebook: facebook,
                     builtsearchUrl: builtsearchUrl,
+                    date_modified: new Date().toISOString(),
             })
             .eq('email',email);
 
@@ -140,6 +144,7 @@ export async function PATCH( { request }) {
         const instagram = row['instagram'];
         const facebook = row['facebook'];
         const builtsearchUrl = row['builtsearchUrl'];
+        
 
         const { error: updateError } = await supabase
             .from('contacts')
@@ -156,7 +161,8 @@ export async function PATCH( { request }) {
                 pspc_cat,
                 instagram,
                 facebook,
-                builtsearchUrl
+                builtsearchUrl,
+                date_modified: new Date().toISOString()
             })
             .eq('email',email);
 
