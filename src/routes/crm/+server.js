@@ -19,6 +19,8 @@ export async function POST({ request }) {
         const instagram = formData.get("instagram");
         const facebook = formData.get("facebook");
         const builtsearchUrl = formData.get("builtsearch_url");
+        const remarks = formData.get("remarks");
+        const pdpa = formData.get("pdpa");
         
         // Insert the row into Supabase
         const { data: insertedData, error: insertError } = await supabase
@@ -39,6 +41,8 @@ export async function POST({ request }) {
                     instagram: instagram,
                     facebook: facebook,
                     builtsearchUrl: builtsearchUrl,
+                    remarks: remarks,
+                    pdpa: pdpa
                }
             ]);
         
@@ -51,27 +55,50 @@ export async function POST({ request }) {
       }
 }
 
-export async function DELETE({ request }) {
-    const row = await request.formData();
-    const email = row.get('email');
-    console.log("deletetest")
+// export async function DELETE({ request }) {
+//     const row = await request.formData();
+//     const email = row.get('email');
+//     console.log("deletetest")
 
-    try {
-        // Step 1: Delete the row from the database
-        const { data, error } = await supabase
-            .from('contacts') // Replace 'contacts' with your table name
-            .delete()
-            .eq('email', email); // Assuming each row has a unique 'id' field
+//     try {
+//         // Step 1: Delete the row from the database
+//         const { data, error } = await supabase
+//             .from('contacts') // Replace 'contacts' with your table name
+//             .delete()
+//             .eq('email', email); // Assuming each row has a unique 'id' field
 
-        if (error) {
-            console.error("Error deleting row:", error);
+//         if (error) {
+//             console.error("Error deleting row:", error);
             
-        }
+//         }
 
+//     } catch (error) {
+//         console.error("Unexpected error:", error);
+//     }
+// }
+
+export async function DELETE({ request }) {
+    const formData = await request.formData();
+    const emails = formData.getAll('emails[]'); // Get an array of emails
+    console.log("Deleting emails:", emails);
+  
+    try {
+      const { data, error } = await supabase
+        .from('contacts')
+        .delete()
+        .in('email', emails); // Use 'in' to delete multiple rows
+  
+      if (error) {
+        console.error("Error deleting rows:", error);
+        return new Response("Error deleting rows", { status: 500 });
+      }
+  
+      return new Response("Rows deleted successfully", { status: 200 });
     } catch (error) {
-        console.error("Unexpected error:", error);
+      console.error("Unexpected error:", error);
+      return new Response("Unexpected error", { status: 500 });
     }
-}
+  }
 
 export async function PUT( { request }) {
     try {
@@ -90,6 +117,8 @@ export async function PUT( { request }) {
         const instagram = formData.get("instagram");
         const facebook = formData.get("facebook");
         const builtsearchUrl = formData.get("builtsearch_url");
+        const remarks = formData.get("remarks");
+        const pdpa = formData.get("pdpa");
         const date_modified = new Date().toISOString();
         console.log(date_modified)
         
@@ -111,6 +140,8 @@ export async function PUT( { request }) {
                     facebook: facebook,
                     builtsearchUrl: builtsearchUrl,
                     date_modified: new Date().toISOString(),
+                    remarks: remarks,
+                    pdpa: pdpa,
             })
             .eq('email',email);
 
@@ -144,6 +175,8 @@ export async function PATCH( { request }) {
         const instagram = row['instagram'];
         const facebook = row['facebook'];
         const builtsearchUrl = row['builtsearchUrl'];
+        const remarks = row['remarks'];
+        const pdpa = row['pdpa'];
         
 
         const { error: updateError } = await supabase
@@ -162,7 +195,9 @@ export async function PATCH( { request }) {
                 instagram,
                 facebook,
                 builtsearchUrl,
-                date_modified: new Date().toISOString()
+                date_modified: new Date().toISOString(),
+                remarks,
+                pdpa,
             })
             .eq('email',email);
 

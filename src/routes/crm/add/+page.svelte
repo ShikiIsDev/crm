@@ -20,7 +20,7 @@
         { value: "supplier", label: "Supplier"}
     ];
 
-    
+
     async function handleSubmit(event) {
         
 
@@ -179,6 +179,16 @@
             <div class="form-group">
                 <label for="builtsearch_url">BuiltSearch URL</label>
                 <input type="text" name="builtsearch_url" />
+            </div>
+
+            <div class="form-group">
+                <label for="remarks">Remarks</label>
+                <input type="text" name="remarks" />
+            </div>
+
+            <div class="form-group">
+                <label for="pdpa">PDPA (Y/N)</label>
+                <input type="text" name="pdpa" />
             </div>
 
             <button type="submit">Submit</button>

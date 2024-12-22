@@ -24,8 +24,8 @@ export async function load({ locals }) {
         };
     }
 
-    console.log(error);
-    console.log(data)
+    // console.log(error);
+    // console.log(data)
 
     return { data, user: session.user };
 }

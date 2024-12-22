@@ -5,16 +5,19 @@
     import readXlsxFile from 'read-excel-file';
     import { json } from '@sveltejs/kit';
     import { goto, invalidateAll } from '$app/navigation';
-    import { onMount } from 'svelte';
+    import { onMount, onDestroy } from 'svelte';
 
     export let data = [];
-    console.log(data.data);
+    console.log(data.data.length);
+
+    let totalLength = data.data.length;
+    console.log("totalLength",totalLength)
 
     let { supabase } = data;
 
     let showHiddenFields = false;
     let editingRow = null; 
-    let editedData = null;
+    
     let searchTerm = '';
     let filteredData = [...data.data];
     let originalData = [...data.data];
@@ -22,6 +25,13 @@
     let showRows = 10;
     let currentPage = 1;
     let totalPages = Math.ceil(data.data.length / showRows);
+
+    let selectAll = false;
+    let selectedRows = new Set();
+    let isIndeterminate = false;
+
+    let editingField = null;
+    let editedData = {};
 
     let displayedData = [];
     // updateTableData();
@@ -42,6 +52,10 @@
         whatsapps: row.whatsapps,
         builtsearchUrl: row.builtsearchUrl,
         pspc_cat: row.pspc_cat,
+        remarks: row.remarks,
+        pdpa: row.pdpa,
+        date_created: row.date_created,
+        date_modified: row.date_modified,
         // date_modified: row.date_modified
     }));
 
@@ -64,6 +78,8 @@
         pspc_cat: false,
         builtsearchUrl: false,
         tags: true,
+        pdpa: false,
+        remarks: false,
         // date_modified: true,
     };
 
@@ -89,7 +105,9 @@
         { value: "whatsapps", label:"Whatsapp" },
         { value: "company_reg", label:"Company Reg." },
         { value: "pspc_cat", label:"PSPC Category" },
-        { value:"builtsearchUrl", label:"BuiltSearch URL"}
+        { value:"builtsearchUrl", label:"BuiltSearch URL"},
+        { value:"remarks", label:"Remarks"},
+        { value:"pdpa", label:"PDPA (y/n)"},
     ];
 
     const tags = [
@@ -104,6 +122,31 @@
         { value: "agencies", label: "Agencies"},
         { value: "supplier", label: "Supplier"}
     ];
+
+    function toggleSelectAll() {
+    selectAll = !selectAll;
+    if (selectAll) {
+      selectedRows = new Set(data.data.map((item) => item.id));
+    } else {
+      selectedRows = new Set();
+    }
+  }
+
+  // Toggle individual row selection
+  function toggleRowSelection(rowId) {
+    if (selectedRows.has(rowId)) {
+      selectedRows.delete(rowId);
+    } else {
+      selectedRows.add(rowId);
+    }
+
+    selectedRows = new Set(selectedRows);
+
+    // Update "Select All" state based on selection
+    selectAll = selectedRows.size === data.data.length;
+  }
+    
+
 
     function exportToVCF() {
     if (!data || !data.data || !Array.isArray(data.data) || data.data.length === 0) {
@@ -225,6 +268,26 @@ END:VCARD
     function filter() {
         showHiddenFields = !showHiddenFields;
     }
+
+    function handleClickOutside(event) {
+        try {
+            const filterElement = document.querySelector('.filter');
+            if (filterElement && !filterElement.contains(event.target)) {
+                showHiddenFields = false;
+            }
+        } catch (error) {
+            console.error("Error in handleClickOutside:", error);
+        }
+    }
+
+    onMount (() => {
+        document.addEventListener('click', handleClickOutside);
+    })
+
+    
+    
+    
+
 
     function filterData(item) {
 
@@ -416,30 +479,62 @@ END:VCARD
         data = { ...data, data: sortedData };
     }
 
-    async function deleteRow(email) {
-        const confirmation = confirm("Are you sure you want to delete this row?");
+    // async function deleteRow(email) {
+    //     const confirmation = confirm("Are you sure you want to delete this row?");
+    //     if (!confirmation) return;
+
+    //     try {
+
+    //         const formData = new FormData();
+    //         formData.append("email", email);
+
+    //         const resp = await fetch('/crm', {
+    //             method:'DELETE',
+    //             body: formData,
+    //         });
+
+    //         location.reload();
+
+    //         if (resp.ok) {
+    //             console.log("Delete successful");
+                
+    //         }
+    //     } catch (error) {
+    //         console.error("Unexpected error:", error);
+    //     }
+    // }
+
+    async function deleteSelectedRows() {
+        const confirmation = confirm("Are you sure you want to delete the selected rows?");
         if (!confirmation) return;
 
         try {
-
             const formData = new FormData();
-            formData.append("email", email);
-
-            const resp = await fetch('/crm', {
-                method:'DELETE',
-                body: formData,
+            selectedRows.forEach(id => {
+            const email = data.data.find(item => item.id === id)?.email; // Find email by ID
+            if (email) {
+                formData.append("emails[]", email);
+            }
             });
 
-            location.reload();
+            const response = await fetch('/crm', {
+            method: 'DELETE',
+            body: formData,
+            });
 
-            if (resp.ok) {
-                console.log("Delete successful");
-                
+            if (response.ok) {
+            console.log("Rows deleted successfully");
+            selectedRows.clear();
+            selectAll = false;
+            location.reload(); // Reload the page to reflect the updated data
+            } else {
+            console.error("Failed to delete rows:", await response.text());
             }
         } catch (error) {
             console.error("Unexpected error:", error);
         }
     }
+
 
     function editRow(row) {
         console.log('Editing row:', row);
@@ -505,7 +600,15 @@ END:VCARD
         </div>
       </div>
       <div class="header">
+        {#if selectedRows.size > 0}
+        <button on:click={deleteSelectedRows}>
+            Delete Selected ({selectedRows.size})
+        </button>
+        {:else}
+
         <p>Contact ({rows.length})</p>
+        {/if}
+        
         <div class="functions">
           <div class="search-field">
             <input
@@ -535,10 +638,19 @@ END:VCARD
         </div>
       </div>
       <div class="table">
+        
         <table>
           <thead>
+            
             <tr>
+                <th>
+                    <input 
+                        type="checkbox"
+                        checked={selectAll}
+                        on:change={toggleSelectAll}/>
+                </th>
               {#each Object.keys(checkedFields) as key (key)}
+                
                 {#if checkedFields[key]}
                   <th>
                     <div class="header-content" on:click={() => sortData(key)}>
@@ -557,11 +669,19 @@ END:VCARD
                 {/if}
               {/each}
               <th>Actions</th>
+              <th>Date Modified</th>
             </tr>
           </thead>
           <tbody>
             {#each data.data as item (item.id)}
               <tr>
+                <td>
+                    <input
+                    type="checkbox"
+                    checked={selectedRows.has(item.id)}
+                    on:change={() => toggleRowSelection(item.id)}
+                  />
+                </td>
                 {#each Object.keys(checkedFields) as key (key)}
                   {#if checkedFields[key]}
                     <td>
@@ -631,19 +751,28 @@ END:VCARD
                       <button on:click={() => editRow(item)} class="edit-button">
                         <Icon icon="typcn:edit" width="24" height="24"></Icon>
                       </button>
-                      <button on:click={() => deleteRow(item.email)} class="delete-button">
-                        <Icon icon="material-symbols:delete-outline" width="24" height="24" style="color: #e9686a"></Icon>
-                      </button>
+                      
                     {/if}
                   </div>
                 </td>
-                <!-- <td>
+                <td>
                     {#if item.date_modified}
-                      {item.date_modified.toLocaleString()}
+                      {new Intl.DateTimeFormat(undefined, {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                      }).format(new Date(item.date_modified))}
                     {:else}
-                      N/A
+                      {new Intl.DateTimeFormat(undefined, {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                      }).format(new Date(item.date_created))}
                     {/if}
-                  </td> -->
+                  </td>
+                  
+                    
+                  
               </tr>
             {/each}
           </tbody>
@@ -657,6 +786,7 @@ END:VCARD
             <option value="10">10</option>
             <option value="20">20</option>
             <option value="50">50</option>
+            <option value="{totalLength}">{totalLength}</option>
           </select>
         </div>
         <div class="pagination">
@@ -749,10 +879,29 @@ END:VCARD
                 padding: 0.5rem 1rem;
 
                 p {
-                    margin: 0;
-                    font-weight: 600;
-                    font-size: 2rem;
-                }
+                margin: 0;
+                font-weight: 600;
+                font-size: 2rem;
+                height: 2rem; /* Same height as the button */
+                line-height: 2rem; /* Ensures text aligns vertically */
+            }
+
+            button {
+                padding: 0 0.5rem; /* Adjust padding for consistent text size */
+                font-weight: 600;
+                font-size: 1rem; /* Match font size with <p> */
+                height: 2rem; /* Explicitly set height to match <p> */
+                line-height: 2rem; /* Vertically centers the text */
+                background-color: #007bff;
+                color: white;
+                border-radius: 5px;
+                border: 0px;
+            }
+
+            button:hover {
+                background-color: #0056b3;
+                cursor: pointer;
+            }
 
                 .functions {
                     display: flex;
@@ -797,7 +946,11 @@ END:VCARD
                         position: relative; /* This makes the filter button the parent for positioning */
 
                         button {
+                            display: flex; /* Enables Flexbox */
+                            justify-content: center; /* Centers content horizontally */
+                            align-items: center; /* Centers content vertically */
                             padding: 0.5rem;
+                            align-items: center;
                             background-color: #007bff;
                             color: white;
                             border: none;
