@@ -1,5 +1,8 @@
 import { createBrowserClient, createServerClient, isBrowser } from '@supabase/ssr';
 import { PUBLIC_SUPABASE_KEY, PUBLIC_SUPABASE_URL } from '$env/static/public';
+import { createClient } from '@supabase/supabase-js';
+
+
 
 export const load = async ({ data, depends, fetch }) => {
   depends('supabase:auth');
@@ -12,6 +15,8 @@ export const load = async ({ data, depends, fetch }) => {
           getAll: () => data.cookies || [],
         },
       });
+
+  const supabaseClient = createClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_KEY);
 
   let session = null;
   let user = null;
@@ -34,5 +39,5 @@ export const load = async ({ data, depends, fetch }) => {
 //   console.log('Session:', session);
 //   console.log('User:', user);
 
-  return { session, supabase, user };
+  return { session, supabase, user,supabaseClient };
 };

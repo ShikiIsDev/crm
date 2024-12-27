@@ -1,1116 +1,1287 @@
 <script>
-    import Icon from '@iconify/svelte';
-    import * as XLSX from "xlsx";
-    // import { supabase } from "$lib/supabaseClient.js";
-    import readXlsxFile from 'read-excel-file';
-    import { json } from '@sveltejs/kit';
-    import { goto, invalidateAll } from '$app/navigation';
-    import { onMount, onDestroy } from 'svelte';
+import Icon from "@iconify/svelte";
+import * as XLSX from "xlsx";
+// import { supabase } from "$lib/supabaseClient.js";
+import readXlsxFile from "read-excel-file";
+import { json } from "@sveltejs/kit";
+import { goto, invalidateAll } from "$app/navigation";
+import { onMount, onDestroy } from "svelte";
+import { v4 as uuidv4 } from "uuid";
 
-    export let data = [];
-    console.log(data.data.length);
+export let data = [];
+export let fileData = [];
+console.log(data.fileData);
+// console.log(data.data.length);
 
-    let totalLength = data.data.length;
-    console.log("totalLength",totalLength)
+let totalLength = data.data.length;
+console.log("totalLength", totalLength);
 
-    let { supabase } = data;
+let { supabase, supabaseClient } = data;
 
-    let showHiddenFields = false;
-    let editingRow = null; 
-    
-    let searchTerm = '';
-    let filteredData = [...data.data];
-    let originalData = [...data.data];
+let showHiddenFields = false;
+let editingRow = null;
 
-    let showRows = 10;
-    let currentPage = 1;
-    let totalPages = Math.ceil(data.data.length / showRows);
+let searchTerm = "";
+let filteredData = [...data.data];
+let originalData = [...data.data];
 
-    let selectAll = false;
-    let selectedRows = new Set();
-    let isIndeterminate = false;
+let showRows = 10;
+let currentPage = 1;
+let totalPages = Math.ceil(data.data.length / showRows);
 
-    let editingField = null;
-    let editedData = {};
+let selectAll = false;
+let selectedRows = new Set();
+let isIndeterminate = false;
 
-    let displayedData = [];
-    // updateTableData();
+let editingField = null;
+let editedData = {};
 
-    let rows = data.data.map((row) => ({
-        id: row.id,
-        first_name: row.first_name,
-        last_name: row.last_name,
-        company_name: row.company_name,
-        company_reg: row.company_reg,
-        contact: row.contact,
-        country: row.country,
-        email: row.email,
-        facebook: row.facebook,
-        instagram: row.instagram,
-        tags: row.tags,
-        website: row.website,
-        whatsapps: row.whatsapps,
-        builtsearchUrl: row.builtsearchUrl,
-        pspc_cat: row.pspc_cat,
-        remarks: row.remarks,
-        pdpa: row.pdpa,
-        date_created: row.date_created,
-        date_modified: row.date_modified,
-        // date_modified: row.date_modified
-    }));
+let displayedData = [];
+// updateTableData();
 
-    console.log(data.data.length)
+let rows = data.data.map((row) => ({
+	id: row.id,
+	first_name: row.first_name,
+	last_name: row.last_name,
+	company_name: row.company_name,
+	company_reg: row.company_reg,
+	contact: row.contact,
+	country: row.country,
+	email: row.email,
+	facebook: row.facebook,
+	instagram: row.instagram,
+	tags: row.tags,
+	website: row.website,
+	whatsapps: row.whatsapps,
+	builtsearchUrl: row.builtsearchUrl,
+	pspc_cat: row.pspc_cat,
+	remarks: row.remarks,
+	pdpa: row.pdpa,
+	date_created: row.date_created,
+	date_modified: row.date_modified,
+	// date_modified: row.date_modified
+}));
 
-    console.log("totalpages:",totalPages);
+// console.log(data.data.length)
 
-    let checkedFields = {
-        company_name: true,  // Default to true (checked)
-        email: true,         // Default to true (checked)
-        contact: true,       // Default to true (checked)
-        first_name: true,    // Default to true (checked)
-        last_name: true,     // Default to true (checked)
-        country: false,      // Country default is unchecked
-        website: false,
-        facebook: false,
-        instagram: false,
-        whatsapps: false,
-        company_reg: false,
-        pspc_cat: false,
-        builtsearchUrl: false,
-        tags: true,
-        pdpa: false,
-        remarks: false,
-        // date_modified: true,
-    };
+console.log("totalpages:", totalPages);
 
-    let sortConfig = {
-        key: null,      // Column to sort by (e.g., 'company_name')
-        direction: null // 'asc' for ascending, 'desc' for descending
-    };
+let checkedFields = {
+	company_name: true, // Default to true (checked)
+	email: true, // Default to true (checked)
+	contact: true, // Default to true (checked)
+	first_name: true, // Default to true (checked)
+	last_name: true, // Default to true (checked)
+	country: false, // Country default is unchecked
+	website: false,
+	facebook: false,
+	instagram: false,
+	whatsapps: false,
+	company_reg: false,
+	pspc_cat: false,
+	builtsearchUrl: false,
+	tags: true,
+	pdpa: false,
+	remarks: false,
+	attachments: false,
+	// date_modified: true,
+};
 
-    const show_fields = [
-        { value: "email", label: "Email" },
-        { value: "first_name", label: "First Name" }
-    ];
+let sortConfig = {
+	key: null, // Column to sort by (e.g., 'company_name')
+	direction: null, // 'asc' for ascending, 'desc' for descending
+};
 
-    const hidden_fields = [
-        { value: "company_name", label: "Company Name" },
-        { value: "contact", label: "Contact No." },
-        { value: "last_name", label: "Last Name" },
-        { value: "tags", label: "Tags" },
-        { value: "country", label: "Country" },
-        { value: "website", label:"Website" },
-        { value: "facebook", label:"Facebook" },
-        { value: "instagram", label:"Instagram" },
-        { value: "whatsapps", label:"Whatsapp" },
-        { value: "company_reg", label:"Company Reg." },
-        { value: "pspc_cat", label:"PSPC Category" },
-        { value:"builtsearchUrl", label:"BuiltSearch URL"},
-        { value:"remarks", label:"Remarks"},
-        { value:"pdpa", label:"PDPA (y/n)"},
-    ];
+let filesByEmail = data.fileData.reduce((acc, { email, file_path, name }) => {
+	if (!acc[email]) acc[email] = [];
+	acc[email].push({ file_path, name });
+	return acc;
+}, {});
 
-    const tags = [
-        { value: "architect", label: "Architect"},
-        { value: "interior designer", label: "Interior Designer"},
-        { value: "cs engineer", label: "CS Engineer"},
-        { value: "mep engineer", label: "MEP Engineer"},
-        { value: "facility management", label: "Facility Management"},
-        { value: "quantity surveyor", label: "Quantity Surveyor"},
-        { value: "project management", label: "Project Management"},
-        { value: "owner", label: "Owner"},
-        { value: "agencies", label: "Agencies"},
-        { value: "supplier", label: "Supplier"}
-    ];
+let fileInput;
+let selectedFiles = [];
+let email = null;
 
-    function toggleSelectAll() {
-    selectAll = !selectAll;
-    if (selectAll) {
-      selectedRows = new Set(data.data.map((item) => item.id));
-    } else {
-      selectedRows = new Set();
-    }
-  }
+const show_fields = [
+	{ value: "email", label: "Email" },
+	{ value: "first_name", label: "First Name" },
+];
 
-  // Toggle individual row selection
-  function toggleRowSelection(rowId) {
-    if (selectedRows.has(rowId)) {
-      selectedRows.delete(rowId);
-    } else {
-      selectedRows.add(rowId);
-    }
+const hidden_fields = [
+	{ value: "company_name", label: "Company Name" },
+	{ value: "contact", label: "Contact No." },
+	{ value: "last_name", label: "Last Name" },
+	{ value: "tags", label: "Tags" },
+	{ value: "country", label: "Country" },
+	{ value: "website", label: "Website" },
+	{ value: "facebook", label: "Facebook" },
+	{ value: "instagram", label: "Instagram" },
+	{ value: "whatsapps", label: "Whatsapp" },
+	{ value: "company_reg", label: "Company Reg." },
+	{ value: "pspc_cat", label: "PSPC Category" },
+	{ value: "builtsearchUrl", label: "BuiltSearch URL" },
+	{ value: "remarks", label: "Remarks" },
+	{ value: "pdpa", label: "PDPA (y/n)" },
+	{ value: "attachments", label: "Attachments" },
+];
 
-    selectedRows = new Set(selectedRows);
+const tags = [
+	{ value: "architect", label: "Architect" },
+	{ value: "interior designer", label: "Interior Designer" },
+	{ value: "cs engineer", label: "CS Engineer" },
+	{ value: "mep engineer", label: "MEP Engineer" },
+	{ value: "facility management", label: "Facility Management" },
+	{ value: "quantity surveyor", label: "Quantity Surveyor" },
+	{ value: "project management", label: "Project Management" },
+	{ value: "owner", label: "Owner" },
+	{ value: "agencies", label: "Agencies" },
+	{ value: "supplier", label: "Supplier" },
+];
 
-    // Update "Select All" state based on selection
-    selectAll = selectedRows.size === data.data.length;
-  }
-    
+function toggleSelectAll() {
+	selectAll = !selectAll;
+	if (selectAll) {
+		selectedRows = new Set(data.data.map((item) => item.id));
+	} else {
+		selectedRows = new Set();
+	}
+}
 
+// Toggle individual row selection
+function toggleRowSelection(rowId) {
+	if (selectedRows.has(rowId)) {
+		selectedRows.delete(rowId);
+	} else {
+		selectedRows.add(rowId);
+	}
 
-    function exportToVCF() {
-    if (!data || !data.data || !Array.isArray(data.data) || data.data.length === 0) {
-        alert("No contacts available to export.");
-        return;
-    }
+	selectedRows = new Set(selectedRows);
 
-    // Utility function to sanitize fields
-    function sanitizeField(field) {
-        return field ? field.trim() : "";
-    }
+	// Update "Select All" state based on selection
+	selectAll = selectedRows.size === data.data.length;
+}
 
-    try {
-        // Generate vCard entries for all contacts
-        const vCardEntries = data.data.map(contact => {
-            return `
+function exportToVCF() {
+	if (!data || !data.data || !Array.isArray(data.data) || data.data.length === 0) {
+		alert("No contacts available to export.");
+		return;
+	}
+
+	// Utility function to sanitize fields
+	function sanitizeField(field) {
+		return field ? field.trim() : "";
+	}
+
+	try {
+		// Generate vCard entries for all contacts
+		const vCardEntries = data.data.map((contact) => {
+			const isPdpaNo = sanitizeField(contact.pdpa).toLowerCase() === "n";
+
+			return `
 BEGIN:VCARD
 VERSION:3.0
 N:${sanitizeField(contact.last_name)};${sanitizeField(contact.first_name)};;;
 FN:${sanitizeField(contact.first_name)} ${sanitizeField(contact.last_name)}
 EMAIL:${sanitizeField(contact.email)}
-TEL;TYPE=CELL:${sanitizeField(contact.contact)}
+${!isPdpaNo ? `TEL;TYPE=CELL:${sanitizeField(contact.contact)}` : ""}
+${!isPdpaNo && sanitizeField(contact.whatsapp) ? `TEL;TYPE=WHATSAPP:${sanitizeField(contact.whatsapp)}` : ""}
 ORG:${sanitizeField(contact.company_name)}
-ADR:;;${sanitizeField(contact.company_reg)};;;${sanitizeField(contact.country)};
+ADR:;;${sanitizeField(contact.company_reg)};;;${sanitizeField(contact.country)};;
 URL:${sanitizeField(contact.website)}
 NOTE:Tags - ${sanitizeField(contact.tags)}
 END:VCARD
             `.trim();
-        });
+		});
 
-        // Combine all entries into a single string
-        const vCardContent = vCardEntries.join("\n");
+		// Combine all entries into a single string
+		const vCardContent = vCardEntries.join("\n");
 
-        // Create a blob and trigger download
-        const blob = new Blob([vCardContent], { type: "text/vcard;charset=utf-8" });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = "contacts.vcf";
-        link.click();
+		// Create a blob and trigger download
+		const blob = new Blob([vCardContent], { type: "text/vcard;charset=utf-8" });
+		const link = document.createElement("a");
+		link.href = URL.createObjectURL(blob);
+		link.download = "contacts.vcf";
+		link.click();
 
-        alert("Contacts exported successfully.");
-    } catch (error) {
-        console.error("Error exporting to VCF:", error.message);
-        alert("An error occurred while exporting contacts.");
-    }
+		alert("Contacts exported successfully.");
+	} catch (error) {
+		console.error("Error exporting to VCF:", error.message);
+		alert("An error occurred while exporting contacts.");
+	}
 }
 
-
-    const copyEmailToClipboard = (email) => {
-        if (navigator.clipboard) {
-        navigator.clipboard.writeText(email).then(() => {
-            alert('Email copied to clipboard!');
-        }).catch((err) => {
-            alert('Failed to copy email: ' + err);
-        });
-        } else {
-        // Fallback for unsupported browsers
-        const textarea = document.createElement('textarea');
-        textarea.value = email;
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-        alert('Email copied to clipboard!');
-        }
-    };
-
-
-    function handleShowRowsChange(event) {
-        showRows = parseInt(event.target.value);
-        totalPages = Math.ceil(rows.length / showRows);
-        console.log(totalPages)
-        currentPage = 1;
-        updateTableData();
-    }
-
-    function updateTableData() {
-        const start = (currentPage - 1) * showRows;
-        const end = start + showRows;
-        displayedData = rows.slice(start, end);
-        data.data = displayedData;
-        console.log(displayedData)
-    }
-
-    function nextPage() {
-        if (currentPage < totalPages) {
-            currentPage++;
-            updateTableData();
-            console.log(currentPage)
-        }
-    }
-
-    function previousPage() {
-        if (currentPage > 1) {
-            currentPage--;
-            updateTableData();
-            console.log(currentPage)
-        }
-    }
-
-    function search() {
-        console.log('test')
-        const term = searchTerm.toLowerCase().trim();
-        if(term) {
-            console.log(term)
-            filteredData = data.data.filter(item =>
-                Object.values(item).some(value =>
-                    value?.toString().toLowerCase().includes(term)
-                )
-            )
-
-            console.log(filteredData)
-            data.data = filteredData;
-        } else {
-            data.data = [...originalData];
-        }
-    }
-
-    function filter() {
-        showHiddenFields = !showHiddenFields;
-    }
-
-    function handleClickOutside(event) {
-        try {
-            const filterElement = document.querySelector('.filter');
-            if (filterElement && !filterElement.contains(event.target)) {
-                showHiddenFields = false;
-            }
-        } catch (error) {
-            console.error("Error in handleClickOutside:", error);
-        }
-    }
-
-    onMount (() => {
-        document.addEventListener('click', handleClickOutside);
-    })
-
-    
-    
-    
-
-
-    function filterData(item) {
-
-        if (!searchTerm) return true;
-
-        return Object.values(item).some(value =>
-            value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
-        );
-    }
-
-    function handleFileUpload(event) {
-        const file = event.target.files[0];
-
-        if (file) {
-            upload(file);
-        } else {
-            console.error("No file selected.");
-        }
-        }
-
-    async function upload(file) {
-        try {
-        // Step 1: Parse Excel File
-        const rows = await readXlsxFile(file);
-        console.log(rows)
-        const headers = rows[0]; // Extract headers from the first row
-
-        const data = rows.slice(1).map((row) => {
-            let obj = {};
-            headers.forEach((header, index) => {
-                obj[header] = row[index] ?? ""; // Replace null/undefined with empty string
-            });
-
-            // Normalize keys and values
-            const normalizedObj = {};
-            Object.entries(obj).forEach(([key, value]) => {
-                const normalizedKey = key.toLowerCase().replace(/\s+/g, ' ');
-                let normalizedValue = value;
-                if (typeof value === 'string') {
-                    normalizedValue = value.toLowerCase().replace(/\s+/g, ' ');
-                }
-                normalizedObj[normalizedKey] = normalizedValue;
-            });
-
-            return normalizedObj;
-        });
-
-        // Remove duplicates based on email
-        const uniqueData = Array.from(
-            new Map(data.map((item) => [item.email, item])).values()
-        );
-
-        console.log("Processed Data:", uniqueData);
-
-
-        // Step 2: Upload Data to Supabase
-        for (const row of uniqueData) {
-            const email = row.email;
-
-            // Check if email exists in the database
-            const { data: existingRows, error: fetchError } = await supabase
-                .from('contacts')
-                .select('email')
-                .eq('email', email);
-
-            if (fetchError) {
-                console.error("Error checking email existence:", fetchError);
-                alert('An error occurred while verifying existing emails.');
-                continue;
-            }
-
-            // Handle email existence
-            if (existingRows.length > 0) {
-                const userConfirmed = confirm(
-                    `The email ${email} already exists in the database.\n` +
-                    `Do you want to overwrite the existing data?`
-                );
-
-                if (userConfirmed) {
-                    await updateContact(row);
-                } else {
-                    console.log(`Skipped update for email: ${email}`);
-                }
-            } else {
-                await createContact(row);
-            }
-        }
-
-        alert('Upload process completed.');
-        location.reload(); // Reload after processing all rows
-    } catch (error) {
-        console.error("Error uploading data:", error.message);
-        alert('Failed to upload the file.');
-    }
-    }
-
-    async function createContact(row) {
-        const formData = new FormData();
-        Object.entries(row).forEach(([key, value]) => formData.append(key, value));
-
-        const resp = await fetch('/crm', {
-            method: 'POST',
-            body: formData,
-        });
-
-        if (resp.ok) {
-            console.log("Upload Successful for:", row.email);
-        } else {
-            console.error("Upload failed for:", row.email);
-        }
-    }
-
-    async function updateContact(row) {
-        const formData = new FormData();
-        Object.entries(row).forEach(([key, value]) => formData.append(key, value));
-
-        const resp = await fetch('/crm', {
-            method: 'PUT',
-            body: formData,
-        });
-
-        if (resp.ok) {
-            console.log("Update Successful for:", row.email);
-        } else {
-            console.error("Update failed for:", row.email);
-        }
-    }
-
-
-    function exportToExcel() {
-        if (!data || !data.data || data.data.length === 0) {
-            alert("No data available to export.");
-            return;
-        }
-
-        // Extract all unique headers from the dataset
-        const headers = Object.keys(data.data[0]);
-
-        // Map the data into rows with all fields
-        const rows = data.data.map(row =>
-            headers.reduce((acc, key) => {
-                acc[key] = row[key] ?? ""; // Handle missing fields
-                return acc;
-            }, {})
-        );
-
-        // Create worksheet and workbook
-        const worksheet = XLSX.utils.json_to_sheet(rows);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Full Data");
-
-        // Trigger download
-        XLSX.writeFile(workbook, "full_data_export.xlsx");
-    }
-
-    // This is necessary for the checkboxes to update properly when data changes
-    $: {
-        show_fields.forEach(field => {
-            if (!(field.value in checkedFields)) {
-                checkedFields[field.value] = true; // Default to true (checked)
-            }
-        });
-    }
-    function toggleHiddenFields() {
-        showHiddenFields = !showHiddenFields;
-    }
-
-    function sortData(key) {
-        if (sortConfig.key === key) {
-            // If the same column is clicked, toggle the direction
-            sortConfig.direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
-        } else {
-            // Otherwise, set it to ascending for the new column
-            sortConfig.key = key;
-            sortConfig.direction = 'asc';
-        }
-
-        // Sort the data
-        const sortedData = [...data.data].sort((a, b) => {
-            const valA = a[key] || ''; // Handle undefined values
-            const valB = b[key] || ''; // Handle undefined values
-
-            if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
-            if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
-            return 0;
-        });
-
-        // Reassign to trigger reactivity
-        data = { ...data, data: sortedData };
-    }
-
-    // async function deleteRow(email) {
-    //     const confirmation = confirm("Are you sure you want to delete this row?");
-    //     if (!confirmation) return;
-
-    //     try {
-
-    //         const formData = new FormData();
-    //         formData.append("email", email);
-
-    //         const resp = await fetch('/crm', {
-    //             method:'DELETE',
-    //             body: formData,
-    //         });
-
-    //         location.reload();
-
-    //         if (resp.ok) {
-    //             console.log("Delete successful");
-                
-    //         }
-    //     } catch (error) {
-    //         console.error("Unexpected error:", error);
-    //     }
-    // }
-
-    async function deleteSelectedRows() {
-        const confirmation = confirm("Are you sure you want to delete the selected rows?");
-        if (!confirmation) return;
-
-        try {
-            const formData = new FormData();
-            selectedRows.forEach(id => {
-            const email = data.data.find(item => item.id === id)?.email; // Find email by ID
-            if (email) {
-                formData.append("emails[]", email);
-            }
-            });
-
-            const response = await fetch('/crm', {
-            method: 'DELETE',
-            body: formData,
-            });
-
-            if (response.ok) {
-            console.log("Rows deleted successfully");
-            selectedRows.clear();
-            selectAll = false;
-            location.reload(); // Reload the page to reflect the updated data
-            } else {
-            console.error("Failed to delete rows:", await response.text());
-            }
-        } catch (error) {
-            console.error("Unexpected error:", error);
-        }
-    }
-
-
-    function editRow(row) {
-        console.log('Editing row:', row);
-        editingRow = row.id;
-        console.log(editingRow);
-        editedData = { ...row };
-        console.log('Edited data initialised:', editedData);
-    }
-
-    async function saveRow() {
-        try {
-            console.log('Saving row:', editedData);
-
-            const resp = await fetch('/crm', {
-                method:'PATCH',
-                body: JSON.stringify(editedData),
-            });
-
-            const result = await resp.json();
-
-            if (result.success) {
-                console.log(result.message);
-            } else {
-                console.error('Fetch error:', result.message);
-            }
-            location.reload();
-        } catch (err) {
-            console.error('Error saving row via API:', err);
-        }
-    }
-
-    // Cancel editing
-    function cancelEdit() {
-        editingRow = null; // Exit editing mode
-    }
-
-    updateTableData();
-    
-
+const copyEmailToClipboard = (email) => {
+	if (navigator.clipboard) {
+		navigator.clipboard
+			.writeText(email)
+			.then(() => {
+				alert("Email copied to clipboard!");
+			})
+			.catch((err) => {
+				alert("Failed to copy email: " + err);
+			});
+	} else {
+		// Fallback for unsupported browsers
+		const textarea = document.createElement("textarea");
+		textarea.value = email;
+		document.body.appendChild(textarea);
+		textarea.select();
+		document.execCommand("copy");
+		document.body.removeChild(textarea);
+		alert("Email copied to clipboard!");
+	}
+};
+
+function handleShowRowsChange(event) {
+	showRows = parseInt(event.target.value);
+	totalPages = Math.ceil(rows.length / showRows);
+	console.log(totalPages);
+	currentPage = 1;
+	updateTableData();
+}
+
+function updateTableData() {
+	const start = (currentPage - 1) * showRows;
+	const end = start + showRows;
+	displayedData = rows.slice(start, end);
+	data.data = displayedData;
+	// console.log(displayedData)
+}
+
+function nextPage() {
+	if (currentPage < totalPages) {
+		currentPage++;
+		updateTableData();
+		console.log(currentPage);
+	}
+}
+
+function previousPage() {
+	if (currentPage > 1) {
+		currentPage--;
+		updateTableData();
+		console.log(currentPage);
+	}
+}
+
+function search() {
+	console.log("test");
+	const term = searchTerm.toLowerCase().trim();
+	if (term) {
+		console.log(term);
+		filteredData = data.data.filter((item) =>
+			Object.values(item).some((value) => value?.toString().toLowerCase().includes(term)),
+		);
+
+		console.log(filteredData);
+		data.data = filteredData;
+	} else {
+		data.data = [...originalData];
+	}
+}
+
+function filter() {
+	showHiddenFields = !showHiddenFields;
+}
+
+function handleClickOutside(event) {
+	try {
+		const filterElement = document.querySelector(".filter");
+		if (filterElement && !filterElement.contains(event.target)) {
+			showHiddenFields = false;
+		}
+	} catch (error) {
+		console.error("Error in handleClickOutside:", error);
+	}
+}
+
+onMount(() => {
+	document.addEventListener("click", handleClickOutside);
+});
+
+function filterData(item) {
+	if (!searchTerm) return true;
+
+	return Object.values(item).some(
+		(value) => value && value.toString().toLowerCase().includes(searchTerm.toLowerCase()),
+	);
+}
+
+function handleFileUpload(event) {
+	const file = event.target.files[0];
+
+	if (file) {
+		upload(file);
+	} else {
+		console.error("No file selected.");
+	}
+}
+
+async function upload(file) {
+	try {
+		// Step 1: Parse Excel File
+		const rows = await readXlsxFile(file);
+		console.log(rows);
+		const headers = rows[0]; // Extract headers from the first row
+
+		const data = rows.slice(1).map((row) => {
+			let obj = {};
+			headers.forEach((header, index) => {
+				obj[header] = row[index] ?? ""; // Replace null/undefined with empty string
+			});
+
+			// Normalize keys and values
+			const normalizedObj = {};
+			Object.entries(obj).forEach(([key, value]) => {
+				const normalizedKey = key.toLowerCase().replace(/\s+/g, " ");
+				let normalizedValue = value;
+				if (typeof value === "string") {
+					normalizedValue = value.toLowerCase().replace(/\s+/g, " ");
+				}
+				normalizedObj[normalizedKey] = normalizedValue;
+			});
+
+			return normalizedObj;
+		});
+
+		// Remove duplicates based on email
+		const uniqueData = Array.from(new Map(data.map((item) => [item.email, item])).values());
+
+		console.log("Processed Data:", uniqueData);
+
+		// Step 2: Upload Data to Supabase
+		for (const row of uniqueData) {
+			const email = row.email;
+
+			// Check if email exists in the database
+			const { data: existingRows, error: fetchError } = await supabase
+				.from("contacts")
+				.select("email")
+				.eq("email", email);
+
+			if (fetchError) {
+				console.error("Error checking email existence:", fetchError);
+				alert("An error occurred while verifying existing emails.");
+				continue;
+			}
+
+			// Handle email existence
+			if (existingRows.length > 0) {
+				const userConfirmed = confirm(
+					`The email ${email} already exists in the database.\n` +
+						`Do you want to overwrite the existing data?`,
+				);
+
+				if (userConfirmed) {
+					await updateContact(row);
+				} else {
+					console.log(`Skipped update for email: ${email}`);
+				}
+			} else {
+				await createContact(row);
+			}
+		}
+
+		alert("Upload process completed.");
+		location.reload(); // Reload after processing all rows
+	} catch (error) {
+		console.error("Error uploading data:", error.message);
+		alert("Failed to upload the file.");
+	}
+}
+
+async function createContact(row) {
+	const formData = new FormData();
+	Object.entries(row).forEach(([key, value]) => formData.append(key, value));
+
+	const resp = await fetch("/crm", {
+		method: "POST",
+		body: formData,
+	});
+
+	if (resp.ok) {
+		console.log("Upload Successful for:", row.email);
+	} else {
+		console.error("Upload failed for:", row.email);
+	}
+}
+
+async function updateContact(row) {
+	const formData = new FormData();
+	Object.entries(row).forEach(([key, value]) => formData.append(key, value));
+
+	const resp = await fetch("/crm", {
+		method: "PUT",
+		body: formData,
+	});
+
+	if (resp.ok) {
+		console.log("Update Successful for:", row.email);
+	} else {
+		console.error("Update failed for:", row.email);
+	}
+}
+
+function exportToExcel() {
+	if (!data || !data.data || data.data.length === 0) {
+		alert("No data available to export.");
+		return;
+	}
+
+	// Extract all unique headers from the dataset
+	const headers = Object.keys(data.data[0]);
+
+	// Map the data into rows with all fields
+	const rows = data.data.map((row) =>
+		headers.reduce((acc, key) => {
+			acc[key] = row[key] ?? ""; // Handle missing fields
+			return acc;
+		}, {}),
+	);
+
+	// Create worksheet and workbook
+	const worksheet = XLSX.utils.json_to_sheet(rows);
+	const workbook = XLSX.utils.book_new();
+	XLSX.utils.book_append_sheet(workbook, worksheet, "Full Data");
+
+	// Trigger download
+	XLSX.writeFile(workbook, "full_data_export.xlsx");
+}
+
+// This is necessary for the checkboxes to update properly when data changes
+$: {
+	show_fields.forEach((field) => {
+		if (!(field.value in checkedFields)) {
+			checkedFields[field.value] = true; // Default to true (checked)
+		}
+	});
+}
+function toggleHiddenFields() {
+	showHiddenFields = !showHiddenFields;
+}
+
+function sortData(key) {
+	if (sortConfig.key === key) {
+		// If the same column is clicked, toggle the direction
+		sortConfig.direction = sortConfig.direction === "asc" ? "desc" : "asc";
+	} else {
+		// Otherwise, set it to ascending for the new column
+		sortConfig.key = key;
+		sortConfig.direction = "asc";
+	}
+
+	// Sort the data
+	const sortedData = [...data.data].sort((a, b) => {
+		const valA = a[key] || ""; // Handle undefined values
+		const valB = b[key] || ""; // Handle undefined values
+
+		if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
+		if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
+		return 0;
+	});
+
+	// Reassign to trigger reactivity
+	data = { ...data, data: sortedData };
+}
+
+// async function deleteRow(email) {
+//     const confirmation = confirm("Are you sure you want to delete this row?");
+//     if (!confirmation) return;
+
+//     try {
+
+//         const formData = new FormData();
+//         formData.append("email", email);
+
+//         const resp = await fetch('/crm', {
+//             method:'DELETE',
+//             body: formData,
+//         });
+
+//         location.reload();
+
+//         if (resp.ok) {
+//             console.log("Delete successful");
+
+//         }
+//     } catch (error) {
+//         console.error("Unexpected error:", error);
+//     }
+// }
+
+async function deleteSelectedRows() {
+	const confirmation = confirm("Are you sure you want to delete the selected rows?");
+	if (!confirmation) return;
+
+	try {
+		// Loop over each selected row ID
+		for (const id of selectedRows) {
+			const item = data.data.find((item) => item.id === id);
+			if (!item) continue; // Skip if item not found
+
+			const email = item.email;
+			if (!email) continue; // Skip if email is not found
+
+			// Prepare FormData for deleting the row
+			const formData = new FormData();
+			formData.append("emails[]", email);
+
+			// Get the file paths associated with the email
+			const filePaths = filesByEmail[email]?.map((file) => file.file_path) || [];
+
+			// First delete the row (in this case we're sending a DELETE request to '/crm')
+			const response = await fetch("/crm", {
+				method: "DELETE",
+				body: formData,
+			});
+
+			// Then delete each file associated with this email
+			for (const filePath of filePaths) {
+				const fileFormData = new FormData();
+				fileFormData.append("file_path", filePath);
+
+				const resp = await fetch("/crm/fileApi", {
+					method: "DELETE",
+					body: fileFormData,
+				});
+
+				if (!resp.ok) {
+					console.error(`Failed to delete file: ${filePath}`);
+				}
+			}
+
+			// Check if row deletion was successful
+			if (response.ok) {
+				console.log(`Row for ${email} deleted successfully`);
+			} else {
+				console.error(`Failed to delete row for ${email}:`, await response.text());
+			}
+		}
+
+		// Clear selected rows and reset selection state
+		selectedRows.clear();
+		selectAll = false;
+
+		// Reload page to reflect updated data
+		location.reload();
+	} catch (error) {
+		console.error("Unexpected error:", error);
+	}
+}
+
+function editRow(row) {
+	// console.log('Editing row:', row);
+	editingRow = row.id;
+	// console.log(editingRow);
+	editedData = { ...row };
+	// console.log('Edited data initialised:', editedData);
+}
+
+async function saveRow() {
+	try {
+		console.log("Saving row:", editedData);
+
+		const resp = await fetch("/crm", {
+			method: "PATCH",
+			body: JSON.stringify(editedData),
+		});
+
+		const result = await resp.json();
+
+		if (result.success) {
+			console.log(result.message);
+		} else {
+			console.error("Fetch error:", result.message);
+		}
+		location.reload();
+	} catch (err) {
+		console.error("Error saving row via API:", err);
+	}
+}
+
+async function getDownloadLink(filePath) {
+	console.log(filePath);
+	console.log("Downloading file");
+
+	// Assuming the file is in a public bucket, use getPublicUrl
+	const { data, error } = await supabase.storage
+		.from("attachments") // Ensure the correct bucket name
+		.getPublicUrl(filePath);
+
+	if (error) {
+		console.error("Error getting public URL:", error.message);
+		return;
+	}
+
+	const fileUrl = data.publicUrl;
+	console.log("Public URL:", fileUrl);
+
+	// Trigger the download
+	const fileName = filePath.split("/").pop();
+	const link = document.createElement("a");
+	link.href = fileUrl;
+	link.download = fileName; // Optional: set the download file name
+	link.click(); // Trigger the download
+}
+
+function addFiles(event) {
+	const files = Array.from(event.target.files);
+	if (!email) {
+		console.error("Email is required to upload files.");
+		return;
+	}
+	selectedFiles = [...selectedFiles, ...files]; // Add files to list
+}
+
+function removeFile(index) {
+	selectedFiles.splice(index, 1); // Remove by index
+	selectedFiles = [...selectedFiles]; // Trigger reactivity
+}
+
+async function saveFiles() {
+	if (!email) {
+		console.error("Email is required to upload files.");
+		return;
+	}
+
+	for (const file of selectedFiles) {
+		const uniqueFileName = `${uuidv4()}-${file.name}`;
+		const filePath = `attachments/${uniqueFileName}`;
+
+		console.log(filePath);
+		console.log(file);
+
+		try {
+			// Upload file to Supabase
+			const { data, error } = await supabaseClient.storage
+				.from("attachments")
+				.upload(filePath, file, { upsert: true });
+
+			if (error) {
+				console.error(`Failed to upload ${file.name} to Supabase:`, error);
+				continue;
+			}
+
+			// console.log(`Uploaded ${file.name} to Supabase at ${filePath}`);
+
+			// Save metadata
+			const formData = new FormData();
+			formData.append("file_path", filePath);
+			formData.append("name", file.name);
+			formData.append("email", email);
+
+			const response = await fetch("/crm/fileApi", {
+				method: "POST",
+				body: formData,
+			});
+
+			if (!response.ok) {
+				console.error(`Failed to save metadata for ${file.name}:`, await response.text());
+			} else {
+				console.log(`Metadata saved for ${file.name}`);
+			}
+		} catch (error) {
+			console.error(`Unexpected error while uploading ${file.name}:`, error);
+		}
+	}
+
+	// Clear files and email after saving
+	selectedFiles = [];
+	email = null;
+}
+
+async function deleteFile(email, index) {
+	try {
+		// Get the file path from the 'filesByEmail' array using the index
+		const filePath = filesByEmail[email][index].file_path;
+		const fileName = filesByEmail[email][index].name;
+
+		console.log(filePath);
+		console.log(fileName);
+
+		const formData = new FormData();
+		formData.append("file_path", filePath);
+		formData.append("name", fileName);
+
+		const resp = await fetch("/crm/fileApi", {
+			method: "DELETE",
+			body: formData,
+		});
+	} catch (error) {
+		console.error("Error deleting attachment:", error);
+	}
+}
+
+// Cancel editing
+function cancelEdit() {
+	editingRow = null; // Exit editing mode
+}
+
+updateTableData();
 </script>
 
 <div class="body">
-    <div class="contact">
-      <div class="import-export">
-        <div class="import">
-          <label for="import-file" class="import-button">
-            Import Excel
-          </label>
-          <input
-            id="import-file"
-            type="file"
-            accept=".xlsx, .xls"
-            on:change={handleFileUpload}
-            style="display: none;"
-          />
-        </div>
-        <div on:click={exportToExcel} class="export">
-          Export Excel
-        </div>
-  
-        <div on:click={exportToVCF} class="export">
-          Export VCF
-        </div>
-      </div>
-      <div class="header">
-        {#if selectedRows.size > 0}
-        <button on:click={deleteSelectedRows}>
-            Delete Selected ({selectedRows.size})
-        </button>
-        {:else}
+	<div class="contact">
+		<div class="import-export">
+			<div class="import">
+				<label for="import-file" class="import-button"> Import Excel </label>
+				<input
+					id="import-file"
+					type="file"
+					accept=".xlsx, .xls"
+					on:change={handleFileUpload}
+					style="display: none;" />
+			</div>
+			<div on:click={exportToExcel} class="export">Export Excel</div>
 
-        <p>Contact ({rows.length})</p>
-        {/if}
-        
-        <div class="functions">
-          <div class="search-field">
-            <input
-              bind:value={searchTerm}
-              type="search"
-              placeholder="Search..."
-              on:input={search} 
-            />
-          </div>
-          <div class="filter">
-            <button on:click={toggleHiddenFields}>
-              <Icon icon="mdi:filter" height="1rem" width="1rem"></Icon>
-            </button>
-            <div class="hidden-fields {showHiddenFields ? 'visible' : ''}">
-              {#each hidden_fields as field}
-                <div class="hidden-item">
-                  <input
-                    type="checkbox"
-                    id={field.value}
-                    bind:checked={checkedFields[field.value]}
-                  />
-                  {field.label}
-                </div>
-              {/each}
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="table">
-        
-        <table>
-          <thead>
-            
-            <tr>
-                <th>
-                    <input 
-                        type="checkbox"
-                        checked={selectAll}
-                        on:change={toggleSelectAll}/>
-                </th>
-              {#each Object.keys(checkedFields) as key (key)}
-                
-                {#if checkedFields[key]}
-                  <th>
-                    <div class="header-content" on:click={() => sortData(key)}>
-                      {key.replace('_', ' ').toUpperCase()}
-                      <div class="sort">
-                        {#if sortConfig.key === key}
-                          {#if sortConfig.direction === 'asc'}
-                            <Icon icon="akar-icons:arrow-up" />
-                          {:else}
-                            <Icon icon="akar-icons:arrow-down" />
-                          {/if}
-                        {/if}
-                      </div>
-                    </div>
-                  </th>
-                {/if}
-              {/each}
-              <th>Actions</th>
-              <th>Date Modified</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each data.data as item (item.id)}
-              <tr>
-                <td>
-                    <input
-                    type="checkbox"
-                    checked={selectedRows.has(item.id)}
-                    on:change={() => toggleRowSelection(item.id)}
-                  />
-                </td>
-                {#each Object.keys(checkedFields) as key (key)}
-                  {#if checkedFields[key]}
-                    <td>
-                      {#if editingRow === item.id}
-                        <input
-                          type="text"
-                          bind:value={editedData[key]}
-                        />
-                      {:else}
-                        {#if key === 'tags'}
-                          {#if item[key]}
-                            <div class="tags-field">
-                              {#each item[key].split(',') as tag}
-                                <span class="tag">
-                                  {tags.find(t => t.value === tag.trim().toLowerCase())?.label || tag}
-                                </span>{' '}
-                              {/each}
-                            </div>
-                          {:else}
-                            N/A
-                          {/if}
-                        {:else if key === 'contact'}
-                          {#if item[key]}
-                            <a href={`tel:${item[key]}`} target="_blank" rel="noopener noreferrer">
-                              {item[key]}
-                            </a>
-                          {:else}
-                            N/A
-                          {/if}
-                        {:else if key === 'whatsapps'}
-                          {#if item[key]}
-                            <a href={`https://wa.me/${item[key]}`} target="_blank" rel="noopener noreferrer">
-                              {item[key]}
-                            </a>
-                          {:else}
-                            N/A
-                          {/if}
-                        {:else if key === 'website' || key === 'builtsearchUrl'}
-                          {#if item[key]}
-                            <a href={item[key]} target="_blank" rel="noopener noreferrer">
-                              {item[key]}
-                            </a>
-                          {:else}
-                            N/A
-                          {/if}
-                        {:else if key === 'email'}
-                          <div on:click={copyEmailToClipboard(item[key])}  class="copy-email">
-                            {item[key]}
-                          </div>
-                        {:else}
-                          {item[key]}
-                        {/if}
-                      {/if}
-                    </td>
-                  {/if}
-                {/each}
-                <td>
-                  <div class="actions">
-                    {#if editingRow === item.id}
-                      <button on:click={saveRow} class="save-button">
-                        Save
-                      </button>
-                      <button on:click={cancelEdit} class="cancel-button">
-                        Cancel
-                      </button>
-                    {:else}
-                      <button on:click={() => editRow(item)} class="edit-button">
-                        <Icon icon="typcn:edit" width="24" height="24"></Icon>
-                      </button>
-                      
-                    {/if}
-                  </div>
-                </td>
-                <td>
-                    {#if item.date_modified}
-                      {new Intl.DateTimeFormat(undefined, {
-                        dateStyle: 'medium',
-                        timeStyle: 'short',
-                        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-                      }).format(new Date(item.date_modified))}
-                    {:else}
-                      {new Intl.DateTimeFormat(undefined, {
-                        dateStyle: 'medium',
-                        timeStyle: 'short',
-                        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-                      }).format(new Date(item.date_created))}
-                    {/if}
-                  </td>
-                  
-                    
-                  
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-  
-      <div class="controls">
-        <div class="show-rows">
-          <label for="rows-select">Show rows:</label>
-          <select name="rows-select" on:change={handleShowRowsChange}>
-            <option value="10">10</option>
-            <option value="20">20</option>
-            <option value="50">50</option>
-            <option value="{totalLength}">{totalLength}</option>
-          </select>
-        </div>
-        <div class="pagination">
-          <button
-            on:click={previousPage}
-            class="page-number {currentPage === 1 ? 'disabled' : ''}"
-            disabled={currentPage === 1}>
-            <Icon icon="line-md:arrow-small-left" />
-          </button>
-  
-          {#each Array(totalPages) as _, index}
-            {#if index +1 === currentPage}
-              <span class="page-number current">{index+1}</span>
-            {:else}
-              <button
-                on:click={() => {
-                  currentPage = index + 1;
-                  updateTableData()
-                }}
-                class="page-number">
-                {index + 1}
-              </button>
-            {/if}
-          {/each}
-  
-          <button on:click={nextPage} class="page-number" disabled={currentPage === totalPages}>
-            <Icon icon="line-md:arrow-small-right" />
-          </button>
-        </div>
-      </div>
-    </div>
+			<div on:click={exportToVCF} class="export">Export VCF</div>
+		</div>
+		<div class="header">
+			{#if selectedRows.size > 0}
+				<button on:click={deleteSelectedRows}>
+					Delete Selected ({selectedRows.size})
+				</button>
+			{:else}
+				<p>Contact ({rows.length})</p>
+			{/if}
+
+			<div class="functions">
+				<div class="search-field">
+					<input bind:value={searchTerm} type="search" placeholder="Search..." on:input={search} />
+				</div>
+				<div class="filter">
+					<button on:click={toggleHiddenFields}>
+						<Icon icon="mdi:filter" height="1rem" width="1rem"></Icon>
+					</button>
+					<div class="hidden-fields {showHiddenFields ? 'visible' : ''}">
+						{#each hidden_fields as field}
+							<div class="hidden-item">
+								<input type="checkbox" id={field.value} bind:checked={checkedFields[field.value]} />
+								{field.label}
+							</div>
+						{/each}
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="table">
+			<table>
+				<thead>
+					<tr>
+						<th>
+							<input type="checkbox" checked={selectAll} on:change={toggleSelectAll} />
+						</th>
+						{#each Object.keys(checkedFields) as key (key)}
+							{#if checkedFields[key]}
+								<th>
+									<div class="header-content" on:click={() => sortData(key)}>
+										{key.replace("_", " ").toUpperCase()}
+										<div class="sort">
+											{#if sortConfig.key === key}
+												{#if sortConfig.direction === "asc"}
+													<Icon icon="akar-icons:arrow-up" />
+												{:else}
+													<Icon icon="akar-icons:arrow-down" />
+												{/if}
+											{/if}
+										</div>
+									</div>
+								</th>
+							{/if}
+						{/each}
+						<th>Actions</th>
+						<th>Date Modified</th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each data.data as item (item.id)}
+						<tr>
+							<td>
+								<input
+									type="checkbox"
+									checked={selectedRows.has(item.id)}
+									on:change={() => toggleRowSelection(item.id)} />
+							</td>
+							{#each Object.keys(checkedFields) as key (key)}
+								{#if checkedFields[key]}
+									<td>
+										{#if editingRow === item.id}
+											{#if key === "attachments"}
+												<ul>
+													{#each filesByEmail[item.email] as { file_path, name }, index}
+														<li>
+															<button on:click={() => getDownloadLink(file_path)}>
+																{name}
+															</button>
+															<button
+																on:click={() => deleteFile(item.email, index)}
+																class="delete-button">
+																Delete
+															</button>
+														</li>
+													{/each}
+													<div>
+														<button
+															on:click={() => {
+																email = item.email; // Set email dynamically for this item
+																fileInput.click(); // Trigger file input
+															}}>
+															Add Files
+														</button>
+														<input
+															type="file"
+															id="fileInput"
+															accept="*/*"
+															multiple
+															bind:this={fileInput}
+															on:change={addFiles}
+															style="display: none;" />
+
+														{#if selectedFiles.length > 0}
+															<ul>
+																{#each selectedFiles as file, index}
+																	<li>
+																		{file.name}
+																		<button on:click={() => removeFile(index)}>Remove</button>
+																	</li>
+																{/each}
+															</ul>
+															<button on:click={saveFiles}>Save</button>
+														{:else}
+															<p>No files selected.</p>
+														{/if}
+													</div>
+												</ul>
+											{:else}
+												<input type="text" bind:value={editedData[key]} />
+											{/if}
+										{:else if key === "tags"}
+											{#if item[key]}
+												<div class="tags-field">
+													{#each item[key].split(",") as tag}
+														<span class="tag">
+															{tags.find((t) => t.value === tag.trim().toLowerCase())?.label || tag}
+														</span>{" "}
+													{/each}
+												</div>
+											{:else}
+												N/A
+											{/if}
+										{:else if key === "attachments"}
+											{#if filesByEmail[item.email]?.length}
+												<ul>
+													{#each filesByEmail[item.email] as { file_path, name }, index}
+														<li>
+															<button on:click={() => getDownloadLink(file_path)}>
+																{name}
+															</button>
+														</li>
+													{/each}
+												</ul>
+											{:else}
+												No files
+											{/if}
+										{:else if key === "contact"}
+											{#if item[key]}
+												<a href={`tel:${item[key]}`} target="_blank" rel="noopener noreferrer">
+													{item[key]}
+												</a>
+											{:else}
+												N/A
+											{/if}
+										{:else if key === "whatsapps"}
+											{#if item[key]}
+												<a
+													href={`https://wa.me/${item[key]}`}
+													target="_blank"
+													rel="noopener noreferrer">
+													{item[key]}
+												</a>
+											{:else}
+												N/A
+											{/if}
+										{:else if key === "website" || key === "builtsearchUrl"}
+											{#if item[key]}
+												<a href={item[key]} target="_blank" rel="noopener noreferrer">
+													{item[key]}
+												</a>
+											{:else}
+												N/A
+											{/if}
+										{:else if key === "email"}
+											<div on:click={() => copyEmailToClipboard(item[key])} class="copy-email">
+												{item[key]}
+											</div>
+										{:else}
+											{item[key]}
+										{/if}
+									</td>
+								{/if}
+							{/each}
+							<td>
+								<div class="actions">
+									{#if editingRow === item.id}
+										<button on:click={saveRow} class="save-button"> Save </button>
+										<button on:click={cancelEdit} class="cancel-button"> Cancel </button>
+									{:else}
+										<button on:click={() => editRow(item)} class="edit-button">
+											<Icon icon="typcn:edit" width="24" height="24"></Icon>
+										</button>
+									{/if}
+								</div>
+							</td>
+							<td>
+								{#if item.date_modified}
+									{new Intl.DateTimeFormat(undefined, {
+										dateStyle: "medium",
+										timeStyle: "short",
+										timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+									}).format(new Date(item.date_modified))}
+								{:else}
+									{new Intl.DateTimeFormat(undefined, {
+										dateStyle: "medium",
+										timeStyle: "short",
+										timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+									}).format(new Date(item.date_created))}
+								{/if}
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+
+		<div class="controls">
+			<div class="show-rows">
+				<label for="rows-select">Show rows:</label>
+				<select name="rows-select" on:change={handleShowRowsChange}>
+					<option value="10">10</option>
+					<option value="20">20</option>
+					<option value="50">50</option>
+					<option value={totalLength}>{totalLength}</option>
+				</select>
+			</div>
+			<div class="pagination">
+				<button
+					on:click={previousPage}
+					class="page-number {currentPage === 1 ? 'disabled' : ''}"
+					disabled={currentPage === 1}>
+					<Icon icon="line-md:arrow-small-left" />
+				</button>
+
+				{#each Array(totalPages) as _, index}
+					{#if index + 1 === currentPage}
+						<span class="page-number current">{index + 1}</span>
+					{:else}
+						<button
+							on:click={() => {
+								currentPage = index + 1;
+								updateTableData();
+							}}
+							class="page-number">
+							{index + 1}
+						</button>
+					{/if}
+				{/each}
+
+				<button on:click={nextPage} class="page-number" disabled={currentPage === totalPages}>
+					<Icon icon="line-md:arrow-small-right" />
+				</button>
+			</div>
+		</div>
+	</div>
 </div>
 
 <style lang="scss">
-    .body {
-        font-family: 'Poppins', sans-serif;
-        margin: 0;
-        display: flex;
-        min-height: 100vh;
-        background-color: #f9fafc;
-        width: 100%;
-        padding: 1rem;
+.body {
+	font-family: "Poppins", sans-serif;
+	margin: 0;
+	display: flex;
+	min-height: 100vh;
+	background-color: #f9fafc;
+	width: 100%;
+	padding: 1rem;
 
-                .import-export {
-                    display: flex;
-                    gap: 0.5rem;
-                }
+	.import-export {
+		display: flex;
+		gap: 0.5rem;
+	}
 
-                .import {
-                        display: flex;
-                        flex-direction: row;
-                        background-color: white;
-                        color: #007bff;
-                        border: #007bff 1px solid;
-                        align-items: center;
-                        padding: 0.5rem;
-                        border-radius: 5px;
-                        width: fit-content;
-                    }
+	.import {
+		display: flex;
+		flex-direction: row;
+		background-color: white;
+		color: #007bff;
+		border: #007bff 1px solid;
+		align-items: center;
+		padding: 0.5rem;
+		border-radius: 5px;
+		width: fit-content;
+	}
 
-                    .import:hover {
-                        background-color: rgb(213, 204, 204);
-                        cursor: pointer;
-                    }
+	.import:hover {
+		background-color: rgb(213, 204, 204);
+		cursor: pointer;
+	}
 
-                    .export {
-                        display: flex;
-                        flex-direction: row;
-                        background-color: white;
-                        color: #82868f;
-                        border: #82868f 1px solid;
-                        align-items: center;
-                        padding: 0.5rem;
-                        border-radius: 5px;
-                        width: fit-content;
-                    }
+	.export {
+		display: flex;
+		flex-direction: row;
+		background-color: white;
+		color: #82868f;
+		border: #82868f 1px solid;
+		align-items: center;
+		padding: 0.5rem;
+		border-radius: 5px;
+		width: fit-content;
+	}
 
-                    .export:hover {
-                        background-color: rgb(213, 204, 204);
-                        cursor: pointer;
-                    }
-        
-        .contact {
-            padding: 1rem;
+	.export:hover {
+		background-color: rgb(213, 204, 204);
+		cursor: pointer;
+	}
 
-            .header {
-                display: flex;
-                justify-content: space-between; 
-                align-items: center; 
-                padding: 0.5rem 1rem;
+	.contact {
+		padding: 1rem;
 
-                p {
-                margin: 0;
-                font-weight: 600;
-                font-size: 2rem;
-                height: 2rem; /* Same height as the button */
-                line-height: 2rem; /* Ensures text aligns vertically */
-            }
+		.header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			padding: 0.5rem 1rem;
 
-            button {
-                padding: 0 0.5rem; /* Adjust padding for consistent text size */
-                font-weight: 600;
-                font-size: 1rem; /* Match font size with <p> */
-                height: 2rem; /* Explicitly set height to match <p> */
-                line-height: 2rem; /* Vertically centers the text */
-                background-color: #007bff;
-                color: white;
-                border-radius: 5px;
-                border: 0px;
-            }
+			p {
+				margin: 0;
+				font-weight: 600;
+				font-size: 2rem;
+				height: 2rem; /* Same height as the button */
+				line-height: 2rem; /* Ensures text aligns vertically */
+			}
 
-            button:hover {
-                background-color: #0056b3;
-                cursor: pointer;
-            }
+			button {
+				padding: 0 0.5rem; /* Adjust padding for consistent text size */
+				font-weight: 600;
+				font-size: 1rem; /* Match font size with <p> */
+				height: 2rem; /* Explicitly set height to match <p> */
+				line-height: 2rem; /* Vertically centers the text */
+				background-color: #007bff;
+				color: white;
+				border-radius: 5px;
+				border: 0px;
+			}
 
-                .functions {
-                    display: flex;
-                    gap: 0.5rem; 
+			button:hover {
+				background-color: #0056b3;
+				cursor: pointer;
+			}
 
-                    .search-field {
-                        input {
-                            padding: 0.5rem;
-                            border: 1px solid #ccc;
-                            border-radius: 4px;
-                            outline: none;
-                        }
-                    }
+			.functions {
+				display: flex;
+				gap: 0.5rem;
 
-                    .add-row {
-                        background-color: #007bff; 
-                        color: white; /* White text */
-                        height: 2rem; /* Fixed height */
-                        padding: 0 1rem; /* Horizontal padding only */
-                        font-size: 1rem;
-                        border: none;
-                        border-radius: 5px; /* Rounded corners */
-                        cursor: pointer;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        transition: background-color 0.3s, transform 0.2s;
-                    }
+				.search-field {
+					input {
+						padding: 0.5rem;
+						border: 1px solid #ccc;
+						border-radius: 4px;
+						outline: none;
+					}
+				}
 
-                    .add-row:hover {
-                        background-color: #1272d9;
-                    }
+				.add-row {
+					background-color: #007bff;
+					color: white; /* White text */
+					height: 2rem; /* Fixed height */
+					padding: 0 1rem; /* Horizontal padding only */
+					font-size: 1rem;
+					border: none;
+					border-radius: 5px; /* Rounded corners */
+					cursor: pointer;
+					display: flex;
+					align-items: center;
+					justify-content: center;
+					transition:
+						background-color 0.3s,
+						transform 0.2s;
+				}
 
-                    @media (max-width: 640px) {
-                        .export {
-                            height: 32px; /* Adjust height for smaller screens */
-                            font-size: 14px; /* Smaller font size */
-                        }
-                    }
+				.add-row:hover {
+					background-color: #1272d9;
+				}
 
-                    .filter {
-                        position: relative; /* This makes the filter button the parent for positioning */
+				@media (max-width: 640px) {
+					.export {
+						height: 32px; /* Adjust height for smaller screens */
+						font-size: 14px; /* Smaller font size */
+					}
+				}
 
-                        button {
-                            display: flex; /* Enables Flexbox */
-                            justify-content: center; /* Centers content horizontally */
-                            align-items: center; /* Centers content vertically */
-                            padding: 0.5rem;
-                            align-items: center;
-                            background-color: #007bff;
-                            color: white;
-                            border: none;
-                            border-radius: 4px;
-                            cursor: pointer;
-                            height: 2rem;
-                            width: 2rem;
+				.filter {
+					position: relative; /* This makes the filter button the parent for positioning */
 
-                            &:hover {
-                                background-color: #0056b3;
-                            }
-                        }
+					button {
+						display: flex; /* Enables Flexbox */
+						justify-content: center; /* Centers content horizontally */
+						align-items: center; /* Centers content vertically */
+						padding: 0.5rem;
+						align-items: center;
+						background-color: #007bff;
+						color: white;
+						border: none;
+						border-radius: 4px;
+						cursor: pointer;
+						height: 2rem;
+						width: 2rem;
 
-                        .hidden-fields {
-                            position: absolute; /* Position relative to the button */
-                            top: 2.5rem; /* Place it below the button */
-                            left: 50%; /* Align with the center of the button horizontally */
-                            transform: translateX(-50%); /* Center it using translation */
-                            background-color: white;
-                            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Subtle shadow */
-                            padding: 10px;
-                            border: 1px solid #ccc;
-                            z-index: 1000; /* Ensure it overlaps other elements */
-                            display: none; /* Hidden by default */
-                            grid-template-columns: repeat(2, 1fr); /* 2 columns of equal width */
-                            grid-gap: 10px; /* Add space between items */
-                        }
+						&:hover {
+							background-color: #0056b3;
+						}
+					}
 
-                        .hidden-fields.visible {
-                            display: grid; /* Display when visible */
-                        }
+					.hidden-fields {
+						position: absolute; /* Position relative to the button */
+						top: 2.5rem; /* Place it below the button */
+						left: 50%; /* Align with the center of the button horizontally */
+						transform: translateX(-50%); /* Center it using translation */
+						background-color: white;
+						box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Subtle shadow */
+						padding: 10px;
+						border: 1px solid #ccc;
+						z-index: 1000; /* Ensure it overlaps other elements */
+						display: none; /* Hidden by default */
+						grid-template-columns: repeat(2, 1fr); /* 2 columns of equal width */
+						grid-gap: 10px; /* Add space between items */
+					}
 
-                        .hidden-item {
-                            display: flex;
-                            align-items: center;
-                            gap: 0.5rem;
-                        }
-                        
-                    }
+					.hidden-fields.visible {
+						display: grid; /* Display when visible */
+					}
 
-                }
-            }
+					.hidden-item {
+						display: flex;
+						align-items: center;
+						gap: 0.5rem;
+					}
+				}
+			}
+		}
 
-            table {
-                width: 100%;
-                border-collapse: collapse;
-                flex-wrap: nowrap;
-                th {
-                    padding-left: 20px;
-                    padding-bottom: 10px;
-                    border-bottom: 2px solid #4185F4;
-                    text-align: left;
-                    flex-wrap: nowrap;
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			flex-wrap: nowrap;
+			th {
+				padding-left: 20px;
+				padding-bottom: 10px;
+				border-bottom: 2px solid #4185f4;
+				text-align: left;
+				flex-wrap: nowrap;
 
-                    .header-content {
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                    }
-                }
-                td {
-                    
-                    padding: 1rem;
-                    flex-wrap: nowrap;
-                    border-bottom: 1px solid #82868F;
-                }
+				.header-content {
+					display: flex;
+					justify-content: space-between;
+					align-items: center;
+				}
+			}
+			td {
+				padding: 1rem;
+				flex-wrap: nowrap;
+				border-bottom: 1px solid #82868f;
+			}
 
-                .copy-email {
-                    cursor: pointer;
-                    color: blue;
-                    text-decoration: underline;
-                }
+			.copy-email {
+				cursor: pointer;
+				color: blue;
+				text-decoration: underline;
+			}
 
-                .tags-field {
-                    display: flex;
-                    flex-direction: row;
-                    gap: 0.5rem;
-                }
-                .tag {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 0.5rem;
-                    justify-content: center;
-                    color: #AEAEAE;
-                    border: 1px solid #AEAEAE;
-                    border-radius: 5px;
-                    width: fit-content;
-                    padding: 0.5rem;
-                    font-size: 0.5rem;
-                }
+			.tags-field {
+				display: flex;
+				flex-direction: row;
+				gap: 0.5rem;
+			}
+			.tag {
+				display: flex;
+				flex-direction: column;
+				gap: 0.5rem;
+				justify-content: center;
+				color: #aeaeae;
+				border: 1px solid #aeaeae;
+				border-radius: 5px;
+				width: fit-content;
+				padding: 0.5rem;
+				font-size: 0.5rem;
+			}
 
-                .actions {
-                    display: flex;
-                    gap:0.3rem;
+			.actions {
+				display: flex;
+				gap: 0.3rem;
 
-                    button {
-                        padding: 0.5rem;
-                        font-family: 'Poppins';
-                        border: 0px;
-                        background-color: transparent;
-                    }
+				button {
+					padding: 0.5rem;
+					font-family: "Poppins";
+					border: 0px;
+					background-color: transparent;
+				}
 
-                    button:hover {
-                        background-color: rgb(224, 209, 209);
-                    }
-                }
-            }
-        }
+				button:hover {
+					background-color: rgb(224, 209, 209);
+				}
+			}
+		}
+	}
 
-        .controls {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 1rem;
+	.controls {
+		display: flex;
+		justify-content: space-between;
+		margin-top: 1rem;
 
-            .shows-rows {
-                display: flex;
-                align-items: center;
-                gap: 0.5rem;
+		.shows-rows {
+			display: flex;
+			align-items: center;
+			gap: 0.5rem;
 
-                select {
-                    padding: 0.5rem;
+			select {
+				padding: 0.5rem;
 				border: 1px solid #c7c7c7;
 				border-radius: 6px;
 				background-color: #ebeded;
 				width: 64px;
 				cursor: pointer;
-                }
-            }
+			}
+		}
 
-            .pagination {
-                display: flex;
-                gap: 0.25rem;
+		.pagination {
+			display: flex;
+			gap: 0.25rem;
 
-                .disabled {
-                    opacity: 0.5rem;
-                    cursor: not-allowed;
-                }
-            }
+			.disabled {
+				opacity: 0.5rem;
+				cursor: not-allowed;
+			}
+		}
 
-            .page-number {
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                cursor: pointer;
-                border-radius: 5px;
-                background-color: transparent;
-                border: 1px #a5c9d4 solid;
-                color: inherit;
+		.page-number {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			cursor: pointer;
+			border-radius: 5px;
+			background-color: transparent;
+			border: 1px #a5c9d4 solid;
+			color: inherit;
 
-                &:hover {
-                    background-color: #ebeded;
-                }
-            }
+			&:hover {
+				background-color: #ebeded;
+			}
+		}
 
-            .page-number.current {
-                background-color: #a5c9d4;
-                color: #151d23;
-                width: 40px;
-                height: 40px;
-            }
-        }
-    }
+		.page-number.current {
+			background-color: #a5c9d4;
+			color: #151d23;
+			width: 40px;
+			height: 40px;
+		}
+	}
+}
 </style>

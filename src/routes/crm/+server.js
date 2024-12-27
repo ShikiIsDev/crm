@@ -13,7 +13,7 @@ export async function POST({ request }) {
         const whatsapps = formData.get("whatsapps");
         const contact = formData.get("contact_no"); // Corrected key name
         const country = formData.get("country");
-        const company_reg = formData.get("company_reg._no."); // Corrected key name
+        const company_reg = formData.get("company_reg"); // Corrected key name
         const website = formData.get("website");
         const pspc_cat = formData.get("pspc_category");
         const instagram = formData.get("instagram");
@@ -111,7 +111,7 @@ export async function PUT( { request }) {
         const whatsapps = formData.get("whatsapps");
         const contact = formData.get("contact_no"); // Corrected key name
         const country = formData.get("country");
-        const company_reg = formData.get("company_reg._no."); // Corrected key name
+        const company_reg = formData.get("company_reg"); // Corrected key name
         const website = formData.get("website");
         const pspc_cat = formData.get("pspc_category");
         const instagram = formData.get("instagram");

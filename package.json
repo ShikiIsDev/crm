@@ -27,6 +27,7 @@
 		"read-excel-file": "^5.8.6",
 		"sass": "^1.82.0",
 		"svelte-multiselect": "11.0.0-rc.1",
+		"uuid": "^11.0.3",
 		"xlsx": "^0.18.5"
 	}
 }

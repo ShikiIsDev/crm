@@ -16,6 +16,10 @@ export async function load({ locals }) {
     const { data, error } = await supabase
         .from('contacts')
         .select('*')
+    
+    const { data: fileData, error: fileError } = await supabase
+        .from('attachments')
+        .select('*')
 
     if (error || !data) {
         return {
@@ -26,6 +30,7 @@ export async function load({ locals }) {
 
     // console.log(error);
     // console.log(data)
+    console.log(fileData)
 
-    return { data, user: session.user };
+    return { data, user: session.user, fileData };
 }
