@@ -175,7 +175,15 @@ function exportToVCF() {
 	try {
 		// Generate vCard entries for all contacts
 		const vCardEntries = data.data.map((contact) => {
-			const isPdpaNo = sanitizeField(contact.pdpa).toLowerCase() === "n";
+			const pdpa = sanitizeField(contact.pdpa).toLowerCase();
+
+			// Conditionally include contact and WhatsApp based on pdpa value
+			const contactField =
+				pdpa === "y" || pdpa === "" ? `TEL;TYPE=CELL:${sanitizeField(contact.contact)}` : "";
+			const whatsappField =
+				(pdpa === "y" || pdpa === "") && sanitizeField(contact.whatsapps)
+					? `TEL;TYPE=WHATSAPP:${sanitizeField(contact.whatsapp)}`
+					: "";
 
 			return `
 BEGIN:VCARD
@@ -183,8 +191,8 @@ VERSION:3.0
 N:${sanitizeField(contact.last_name)};${sanitizeField(contact.first_name)};;;
 FN:${sanitizeField(contact.first_name)} ${sanitizeField(contact.last_name)}
 EMAIL:${sanitizeField(contact.email)}
-${!isPdpaNo ? `TEL;TYPE=CELL:${sanitizeField(contact.contact)}` : ""}
-${!isPdpaNo && sanitizeField(contact.whatsapp) ? `TEL;TYPE=WHATSAPP:${sanitizeField(contact.whatsapp)}` : ""}
+${contactField}
+${whatsappField}
 ORG:${sanitizeField(contact.company_name)}
 ADR:;;${sanitizeField(contact.company_reg)};;;${sanitizeField(contact.country)};;
 URL:${sanitizeField(contact.website)}
