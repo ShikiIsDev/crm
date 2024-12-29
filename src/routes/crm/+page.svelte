@@ -182,7 +182,7 @@ function exportToVCF() {
 				pdpa === "y" || pdpa === "" ? `TEL;TYPE=CELL:${sanitizeField(contact.contact)}` : "";
 			const whatsappField =
 				(pdpa === "y" || pdpa === "") && sanitizeField(contact.whatsapps)
-					? `TEL;TYPE=WHATSAPP:${sanitizeField(contact.whatsapp)}`
+					? `TEL;TYPE=WHATSAPP:${sanitizeField(contact.whatsapps)}`
 					: "";
 
 			return `
@@ -611,25 +611,34 @@ async function getDownloadLink(filePath) {
 	console.log(filePath);
 	console.log("Downloading file");
 
-	// Assuming the file is in a public bucket, use getPublicUrl
-	const { data, error } = await supabase.storage
-		.from("attachments") // Ensure the correct bucket name
-		.getPublicUrl(filePath);
+	try {
+		// Generate a signed URL for the private file
+		const { data, error } = await supabaseClient.storage
+			.from("attachments") // Replace with your private bucket name
+			.createSignedUrl(filePath, 60); // URL valid for 60 seconds
 
-	if (error) {
-		console.error("Error getting public URL:", error.message);
-		return;
+		console.log(data);
+
+		if (error) {
+			console.error("Error generating signed URL:", error.message);
+			return;
+		}
+
+		// Use the signed URL to download the file
+		const signedUrl = data.signedUrl;
+		console.log("Signed URL:", signedUrl);
+
+		// Trigger the download
+		const fileName = filePath.split("/").pop(); // Extract the file name
+		const link = document.createElement("a");
+		link.href = signedUrl; // Use the signed URL
+		link.download = fileName; // Optional: set the download file name
+		document.body.appendChild(link); // Append to body for the click to work
+		link.click(); // Trigger the download
+		document.body.removeChild(link); // Clean up
+	} catch (error) {
+		console.error("Unexpected error while downloading file:", error);
 	}
-
-	const fileUrl = data.publicUrl;
-	console.log("Public URL:", fileUrl);
-
-	// Trigger the download
-	const fileName = filePath.split("/").pop();
-	const link = document.createElement("a");
-	link.href = fileUrl;
-	link.download = fileName; // Optional: set the download file name
-	link.click(); // Trigger the download
 }
 
 function addFiles(event) {
