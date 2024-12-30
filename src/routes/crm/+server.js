@@ -1,59 +1,68 @@
 import { supabase } from "$lib/supabaseServer";
 import { json } from "@sveltejs/kit";
 
-export async function POST({ request }) {
-    try {
-        console.log('post')
-        const formData = await request.formData();
-        const company_name = formData.get("company_name");
-        const email = formData.get("email");
-        const first_name = formData.get("first_name");
-        const last_name = formData.get("last_name");
-        const tags = formData.get("tags");
-        const whatsapps = formData.get("whatsapps");
-        const contact = formData.get("contact_no"); // Corrected key name
-        const country = formData.get("country");
-        const company_reg = formData.get("company_reg"); // Corrected key name
-        const website = formData.get("website");
-        const pspc_cat = formData.get("pspc_category");
-        const instagram = formData.get("instagram");
-        const facebook = formData.get("facebook");
-        const builtsearchUrl = formData.get("builtsearch_url");
-        const remarks = formData.get("remarks");
-        const pdpa = formData.get("pdpa");
-        
-        // Insert the row into Supabase
-        const { data: insertedData, error: insertError } = await supabase
-            .from('contacts')
-            .insert([
-               {
-                    company_name: company_name,
-                    email: email,
-                    first_name: first_name,
-                    last_name: last_name,
-                    tags: tags,
-                    whatsapps: whatsapps,
-                    contact: contact,
-                    country: country,
-                    company_reg: company_reg,
-                    website: website,
-                    pspc_cat: pspc_cat,
-                    instagram: instagram,
-                    facebook: facebook,
-                    builtsearchUrl: builtsearchUrl,
-                    remarks: remarks,
-                    pdpa: pdpa
-               }
-            ]);
-        
-        console.log(insertedData);
-
-        return json({ success: true, message: 'Row inserted successfully' });
-      } catch (err) {
-        console.error('Error:', err);
-        return json({ success: false, message: err.message || 'An error occurred' }, { status: 500 });
-      }
+function capitalizeWords(string) {
+  return string
+      .toLowerCase() // Convert the entire string to lowercase
+      .split(" ") // Split the string into words
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1)) // Capitalize the first letter of each word
+      .join(" "); // Join the words back into a single string
 }
+
+export async function POST({ request }) {
+  try {
+      console.log('post');
+      const formData = await request.formData();
+      const company_name = formData.get("company_name");
+      const email = formData.get("email");
+      const first_name = capitalizeWords(formData.get("first_name"));
+      const last_name = capitalizeWords(formData.get("last_name"));
+      const tags = formData.get("tags");
+      const whatsapps = formData.get("whatsapps");
+      const contact = formData.get("contact"); // Corrected key name
+      const country = formData.get("country");
+      const company_reg = formData.get("company_reg"); // Corrected key name
+      const website = formData.get("website");
+      const pspc_cat = formData.get("pspc_category");
+      const instagram = formData.get("instagram");
+      const facebook = formData.get("facebook");
+      const builtsearchUrl = formData.get("builtsearch_url");
+      const remarks = formData.get("remarks");
+      const pdpa = formData.get("pdpa");
+      
+      // Insert the row into Supabase
+      const { data: insertedData, error: insertError } = await supabase
+          .from('contacts')
+          .insert([{
+              company_name: company_name,
+              email: email,
+              first_name: first_name,
+              last_name: last_name,
+              tags: tags,
+              whatsapps: whatsapps,
+              contact: contact,
+              country: country,
+              company_reg: company_reg,
+              website: website,
+              pspc_cat: pspc_cat,
+              instagram: instagram,
+              facebook: facebook,
+              builtsearchUrl: builtsearchUrl,
+              remarks: remarks,
+              pdpa: pdpa
+          }]);
+      
+      if (insertError) throw new Error(insertError.message);
+      
+      console.log(insertedData);
+
+      return json({ success: true, message: 'Row inserted successfully' });
+  } catch (err) {
+      console.error('Error:', err);
+      return json({ success: false, message: err.message || 'An error occurred' }, { status: 500 });
+  }
+}
+
 
 // export async function DELETE({ request }) {
 //     const row = await request.formData();
@@ -105,8 +114,8 @@ export async function PUT( { request }) {
         const formData = await request.formData();
         const company_name = formData.get("company_name");
         const email = formData.get("email");
-        const first_name = formData.get("first_name");
-        const last_name = formData.get("last_name");
+        const first_name = capitalizeWords(formData.get("first_name"));
+        const last_name = capitalizeWords(formData.get("last_name"));
         const tags = formData.get("tags");
         const whatsapps = formData.get("whatsapps");
         const contact = formData.get("contact_no"); // Corrected key name
@@ -163,8 +172,8 @@ export async function PATCH( { request }) {
         
         const company_name = row['company_name'];
         const email = row['email'];
-        const first_name = row['first_name'];
-        const last_name = row['last_name'];
+        const first_name = capitalizeWords(row['first_name']);
+        const last_name = capitalizeWords(row['last_name']);
         const tags = row['tags'];
         const whatsapps = row['whatsapps'];
         const contact = row['contact'];

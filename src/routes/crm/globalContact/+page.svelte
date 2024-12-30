@@ -92,12 +92,6 @@ let sortConfig = {
 	direction: null, // 'asc' for ascending, 'desc' for descending
 };
 
-let filesByEmail = data.fileData.reduce((acc, { email, file_path, name }) => {
-	if (!acc[email]) acc[email] = [];
-	acc[email].push({ file_path, name });
-	return acc;
-}, {});
-
 let fileInput;
 let selectedFiles = [];
 let email = null;
@@ -186,19 +180,19 @@ function exportToVCF() {
 					: "";
 
 			return `
-BEGIN:VCARD
-VERSION:3.0
-N:${sanitizeField(contact.last_name)};${sanitizeField(contact.first_name)};;;
-FN:${sanitizeField(contact.first_name)} ${sanitizeField(contact.last_name)}
-EMAIL:${sanitizeField(contact.email)}
-${contactField}
-${whatsappField}
-ORG:${sanitizeField(contact.company_name)}
-ADR:;;${sanitizeField(contact.company_reg)};;;${sanitizeField(contact.country)};;
-URL:${sanitizeField(contact.website)}
-NOTE:Tags - ${sanitizeField(contact.tags)}
-END:VCARD
-            `.trim();
+	BEGIN:VCARD
+	VERSION:3.0
+	N:${sanitizeField(contact.last_name)};${sanitizeField(contact.first_name)};;;
+	FN:${sanitizeField(contact.first_name)} ${sanitizeField(contact.last_name)}
+	EMAIL:${sanitizeField(contact.email)}
+	${contactField}
+	${whatsappField}
+	ORG:${sanitizeField(contact.company_name)}
+	ADR:;;${sanitizeField(contact.company_reg)};;;${sanitizeField(contact.country)};;
+	URL:${sanitizeField(contact.website)}
+	NOTE:Tags - ${sanitizeField(contact.tags)}
+	END:VCARD
+				`.trim();
 		});
 
 		// Combine all entries into a single string
@@ -517,63 +511,35 @@ function sortData(key) {
 //     }
 // }
 
-async function deleteSelectedRows() {
-	const confirmation = confirm("Are you sure you want to delete the selected rows?");
-	if (!confirmation) return;
-
+async function uploadToCRM() {
 	try {
-		// Loop over each selected row ID
-		for (const id of selectedRows) {
-			const item = data.data.find((item) => item.id === id);
-			if (!item) continue; // Skip if item not found
-
-			const email = item.email;
-			if (!email) continue; // Skip if email is not found
-
-			// Prepare FormData for deleting the row
+		const selectedData = data.data.filter((item) => selectedRows.has(item.id));
+		for (const row of selectedData) {
 			const formData = new FormData();
-			formData.append("emails[]", email);
 
-			// Get the file paths associated with the email
-			const filePaths = filesByEmail[email]?.map((file) => file.file_path) || [];
+			// Append fields of the row to FormData
+			Object.entries(row).forEach(([key, value]) => {
+				formData.append(key, value ?? ""); // Replace null with empty string
+			});
 
-			// First delete the row (in this case we're sending a DELETE request to '/crm')
+			// Make the POST request for each row
 			const response = await fetch("/crm", {
-				method: "DELETE",
+				method: "POST",
 				body: formData,
 			});
 
-			// Then delete each file associated with this email
-			for (const filePath of filePaths) {
-				const fileFormData = new FormData();
-				fileFormData.append("file_path", filePath);
-
-				const resp = await fetch("/crm/fileApi", {
-					method: "DELETE",
-					body: fileFormData,
-				});
-
-				if (!resp.ok) {
-					console.error(`Failed to delete file: ${filePath}`);
-				}
-			}
-
-			// Check if row deletion was successful
-			if (response.ok) {
-				console.log(`Row for ${email} deleted successfully`);
-			} else {
-				console.error(`Failed to delete row for ${email}:`, await response.text());
+			if (!response.ok) {
+				throw new Error(`Error uploading row with ID ${row.id}: ${response.statusText}`);
 			}
 		}
 
-		// Clear selected rows and reset selection state
+		alert("All data uploaded successfully!");
+		// Clear selection after successful upload
 		selectedRows.clear();
 		selectAll = false;
-
-		// Reload page to reflect updated data
-		location.reload();
 	} catch (error) {
-		console.error("Unexpected error:", error);
+		console.error("Error uploading data:", error);
+		alert("An error occurred while uploading data.");
 	}
 }
 
@@ -755,8 +721,8 @@ updateTableData();
 		</div>
 		<div class="header">
 			{#if selectedRows.size > 0}
-				<button on:click={deleteSelectedRows}>
-					Delete Selected ({selectedRows.size})
+				<button on:click={uploadToCRM}>
+					Add to contacts ({selectedRows.size})
 				</button>
 			{:else}
 				<p>Contact ({rows.length})</p>
@@ -778,11 +744,6 @@ updateTableData();
 							</div>
 						{/each}
 					</div>
-				</div>
-				<div class="add">
-					<a href="/crm/add">
-						<button> Add Row </button>
-					</a>
 				</div>
 			</div>
 		</div>
@@ -812,7 +773,6 @@ updateTableData();
 							{/if}
 						{/each}
 						<th>Actions</th>
-						<th>Date Modified</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -952,21 +912,6 @@ updateTableData();
 									{/if}
 								</div>
 							</td>
-							<td>
-								{#if item.date_modified}
-									{new Intl.DateTimeFormat(undefined, {
-										dateStyle: "medium",
-										timeStyle: "short",
-										timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-									}).format(new Date(item.date_modified))}
-								{:else}
-									{new Intl.DateTimeFormat(undefined, {
-										dateStyle: "medium",
-										timeStyle: "short",
-										timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-									}).format(new Date(item.date_created))}
-								{/if}
-							</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -980,7 +925,7 @@ updateTableData();
 					<option value="10">10</option>
 					<option value="20">20</option>
 					<option value="50">50</option>
-					<option value={totalLength}>All</option>
+					<option value={totalLength}>{totalLength}</option>
 				</select>
 			</div>
 			<div class="pagination">
