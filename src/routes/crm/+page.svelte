@@ -277,14 +277,14 @@ function search() {
 	const term = searchTerm.toLowerCase().trim();
 	if (term) {
 		console.log(term);
-		filteredData = data.data.filter((item) =>
+		filteredData = originalData.filter((item) =>
 			Object.values(item).some((value) => value?.toString().toLowerCase().includes(term)),
 		);
 
 		console.log(filteredData);
 		data.data = filteredData;
 	} else {
-		data.data = [...originalData];
+		data.data = displayedData;
 	}
 }
 
@@ -815,6 +815,7 @@ updateTableData();
 						<th>Date Modified</th>
 					</tr>
 				</thead>
+
 				<tbody>
 					{#each data.data as item (item.id)}
 						<tr>
@@ -1017,12 +1018,14 @@ updateTableData();
 <style lang="scss">
 .body {
 	font-family: "Poppins", sans-serif;
-	margin: 0;
+	align-items: center;
 	display: flex;
 	min-height: 100vh;
-	background-color: #f9fafc;
-	width: 100%;
-	padding: 1rem;
+	width: 100%; /* Adjusted to avoid issues with scrollbars */
+
+	font-size: 12px;
+	overflow: hidden;
+	position: relative; /* Optional: if you need position controls */
 
 	.import-export {
 		display: flex;
@@ -1064,7 +1067,7 @@ updateTableData();
 	}
 
 	.contact {
-		padding: 1rem;
+		padding: 0.5rem;
 
 		.header {
 			display: flex;
@@ -1143,8 +1146,6 @@ updateTableData();
 
 					button {
 						display: flex; /* Enables Flexbox */
-						justify-content: center; /* Centers content horizontally */
-						align-items: center; /* Centers content vertically */
 						padding: 0.5rem;
 						align-items: center;
 						background-color: #007bff;
@@ -1188,67 +1189,82 @@ updateTableData();
 			}
 		}
 
-		table {
-			width: 100%;
-			border-collapse: collapse;
-			flex-wrap: nowrap;
-			th {
-				padding-left: 20px;
-				padding-bottom: 10px;
-				border-bottom: 2px solid #4185f4;
+		.table {
+			width: 100%; /* Adjust to fit parent container */
+			max-width: 1000px;
+			max-height: 400px; /* Optional: set a max height for vertical scrolling */
+			overflow-x: auto; /* Enable horizontal scrolling */
+			overflow-y: auto; /* Enable vertical scrolling */
+			position: relative; /* For sticky header positioning */
+
+			table {
+				width: max-content; /* Ensures the table adjusts to the container width */
+				border-collapse: collapse;
+				min-width: 100%;
+			}
+
+			thead {
+				position: sticky;
+				top: 0;
+				z-index: 1;
+			}
+
+			thead th {
+				position: sticky; /* Keeps header row fixed during vertical scroll */
+				top: 0; /* Sticks header at the top */
+				z-index: 1; /* Ensures header stays above table body */
 				text-align: left;
-				flex-wrap: nowrap;
-
-				.header-content {
-					display: flex;
-					justify-content: space-between;
-					align-items: center;
-				}
+				padding: 10px;
+				background-color: #f4f6f6;
+				white-space: nowrap;
 			}
-			td {
-				padding: 1rem;
-				flex-wrap: nowrap;
+
+			tbody td {
+				padding: 10px;
 				border-bottom: 1px solid #82868f;
+				text-align: left;
+				white-space: nowrap;
 			}
+		}
 
-			.copy-email {
-				cursor: pointer;
-				color: blue;
-				text-decoration: underline;
-			}
+		.copy-email {
+			cursor: pointer;
+			color: blue;
+			text-decoration: underline;
+		}
 
-			.tags-field {
-				display: flex;
-				flex-direction: row;
-				gap: 0.5rem;
-			}
-			.tag {
-				display: flex;
-				flex-direction: column;
-				gap: 0.5rem;
-				justify-content: center;
-				color: #aeaeae;
-				border: 1px solid #aeaeae;
-				border-radius: 5px;
-				width: fit-content;
+		.tags-field {
+			display: flex;
+			flex-direction: row;
+			gap: 0.5rem;
+		}
+
+		.tag {
+			display: flex;
+			flex-direction: column;
+			gap: 0.5rem;
+			justify-content: center;
+			color: #aeaeae;
+			border: 1px solid #aeaeae;
+			border-radius: 5px;
+			width: fit-content;
+			padding: 0.5rem;
+			font-size: 0.5rem;
+		}
+
+		.actions {
+			display: flex;
+			gap: 0.3rem;
+
+			button {
 				padding: 0.5rem;
-				font-size: 0.5rem;
+				font-family: "Poppins";
+				border: 0px;
+				background-color: transparent;
 			}
 
-			.actions {
-				display: flex;
-				gap: 0.3rem;
-
-				button {
-					padding: 0.5rem;
-					font-family: "Poppins";
-					border: 0px;
-					background-color: transparent;
-				}
-
-				button:hover {
-					background-color: rgb(224, 209, 209);
-				}
+			button:hover {
+				background-color: rgb(224, 209, 209);
 			}
 		}
 	}

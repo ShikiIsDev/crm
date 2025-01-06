@@ -1,10 +1,7 @@
 <script>
 import Icon from "@iconify/svelte";
-import * as XLSX from "xlsx";
-// import { supabase } from "$lib/supabaseClient.js";
-import readXlsxFile from "read-excel-file";
-import { json } from "@sveltejs/kit";
 import { goto, invalidateAll } from "$app/navigation";
+import { onMount } from "svelte";
 
 export let data;
 // console.log(data);
@@ -21,6 +18,18 @@ function openBar() {
 	}
 }
 
+onMount(() => {
+	const sidebar = document.querySelector(".sidebar");
+
+	sidebar.addEventListener("mouseenter", () => {
+		isOpen = true;
+	});
+
+	sidebar.addEventListener("mouseleave", () => {
+		isOpen = false;
+	});
+});
+
 async function handleLogout() {
 	console.log("signing out");
 	const { error } = await supabase.auth.signOut();
@@ -30,48 +39,67 @@ async function handleLogout() {
 	console.log(error);
 	// location.reload();
 }
-
-function navtigate(path) {
-	goto(path);
-}
 </script>
 
 <main>
 	<div class="sidebar">
-		{#if isOpen === true}
-			<div class="content">
-				<div class="logo">
-					<img src="builtSearchLogo.png" alt="logo" />
-				</div>
+		<img src="builtSearchLogo.png" alt="logo" />
+
+		<div class="content">
+			<div class="icons">
 				<a href="/crm">
-					<div class="add">Home</div>
+					<div class="icon">
+						<div class="item-icon">
+							<Icon icon="lucide:home" style="color: #344856" height="1.2rem" width="1.2rem"></Icon>
+						</div>
+
+						<div class="item">Home</div>
+					</div>
 				</a>
 				<a href="/crm/globalContact">
-					<div class="add">Global Contacts</div>
+					<div class="icon">
+						<div class="item-icon">
+							<Icon icon="solar:global-linear" style="color: #344856" height="1.2rem" width="1.2rem"
+							></Icon>
+						</div>
+
+						<div class="item">Global Contacts</div>
+					</div>
 				</a>
 				<a href="/crm/dashboard">
-					<div class="dashboard">Dashboard</div>
-				</a>
-				<div class="logout" on:click={handleLogout}>Logout</div>
-				<div class="footer">
-					<div class="builtSearch">
-						<span> Powered By </span>
-						<img src="logoName.png" alt="logoName" />
+					<div class="icon">
+						<div class="item-icon">
+							<Icon
+								icon="material-symbols:dashboard-outline-rounded"
+								style="color: #344856"
+								height="1.2rem"
+								width="1.2rem"></Icon>
+						</div>
+
+						<div class="item">Dashboard</div>
 					</div>
-					<hr />
-					<span> Terms | Privacy </span>
+				</a>
+
+				<div class="icon-logout" on:click={handleLogout}>
+					<div class="item-icon">
+						<Icon icon="material-symbols:logout-rounded" height="1.2rem" width="1.2rem"></Icon>
+					</div>
+
+					<div class="item">Logout</div>
 				</div>
 			</div>
-		{/if}
 
-		<div class="arrow" on:click={openBar}>
-			{#if isOpen === false}
-				<Icon icon="majesticons:arrow-left-line" width="24" height="24"></Icon>
-			{:else}
-				<Icon icon="majesticons:arrow-right-line" width="24" height="24"></Icon>
-			{/if}
+			<div class="footer">
+				<div class="builtSearch">
+					<div class="text">Powered By</div>
+					<img src="logoName.png" alt="logoName" />
+				</div>
+				<hr />
+				<span> Terms | Privacy </span>
+			</div>
 		</div>
 	</div>
+
 	<div class="table">
 		<slot />
 	</div>
@@ -80,122 +108,224 @@ function navtigate(path) {
 <style lang="scss">
 main {
 	display: flex;
-	flex-direction: row; /* Arrange content vertically */
-	min-height: 100vh; /* Ensure main spans the full viewport height */
+	flex-direction: row;
 	font-family: "Poppins";
-	position: relative;
+	align-items: center;
+	color: #344856;
+	overflow-x: hidden;
 
 	a {
 		text-decoration: none;
-		color: black;
-	}
-
-	.logo img {
-		max-width: 100%;
-		height: auto;
-		max-height: 60px;
-		display: block;
 	}
 
 	.sidebar {
-		display: relative;
-		position: sticky;
-		padding: 0.5rem;
 		display: flex;
-		flex-direction: row;
-		gap: 0.5rem;
-		width: auto; /* Fixed sidebar width */
-		height: 100vh; /* Fixed height for the sidebar */
+		position: fixed;
+		height: 100vh; /* Full height of the viewport */
+		z-index: 1000;
+		width: 2.5rem;
+		flex-direction: column;
+		padding: 0.5rem;
+		background-color: #f8f9fa;
+		box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+		transition: width 0.3s ease;
+
+		img {
+			height: 2.5rem;
+			width: 2.5rem;
+			margin-top: 1rem; /* Add consistent spacing from the top */
+		}
+
+		&:hover {
+			width: 15vw;
+			.content .icons .icon .item {
+				display: block;
+				opacity: 1;
+				transform: translateX(0);
+				padding-left: 2rem;
+			}
+
+			.content .icons .icon-logout .item {
+				display: block;
+				opacity: 1;
+				transform: translateX(0);
+				padding-left: 2rem;
+			}
+
+			.footer {
+				display: block;
+				opacity: 1;
+				transform: translateX(0);
+			}
+		}
+
+		.footer {
+			margin-top: 23rem;
+			width: 100%;
+			text-align: center;
+			display: none;
+			opacity: 0;
+			transition:
+				transform 0.3s ease,
+				opacity 0.3s ease;
+			/* Flexbox to ensure it stays at the bottom of the sidebar */
+		}
 
 		.content {
-			height: 100vh;
-			width: 15vw;
 			display: flex;
+			justify-content: space-evenly;
 			flex-direction: column;
-			gap: 0.5rem;
-			flex: 1;
+			width: 100%;
+			margin-top: 1rem;
+			transition: opacity 0.3s ease;
 
-			.add,
-			.dashboard,
-			.logout {
+			.icons {
 				display: flex;
-				padding: 0.2rem;
+				flex-direction: column;
+
+				.icon {
+					display: flex;
+					flex-direction: row;
+					align-items: center; /* Vertically align icon and text */
+					gap: 1rem;
+					position: relative;
+					padding: 0.5rem 0.5rem;
+					cursor: pointer;
+
+					&:hover {
+						background-color: #b9d9df; /* Add a subtle background */
+
+						border-radius: 5px;
+					}
+
+					.item-icon {
+						display: flex;
+						align-items: center;
+						justify-content: center;
+						cursor: pointer; /* Make the icon appear interactive */
+					}
+
+					.item {
+						font-size: 1rem;
+						line-height: 1.5rem; /* Matches icon size for alignment */
+						color: #333;
+						white-space: nowrap; /* Prevent text from wrapping */
+						display: none;
+						position: absolute; /* Position to ensure it's hidden offscreen */
+						transition:
+							transform 0.3s ease,
+							opacity 0.3s ease; /* Smooth transition for text visibility */
+
+						&:hover {
+							cursor: pointer;
+						}
+					}
+
+					/* Ensure hover applies to both the icon and text */
+				}
+
+				.icon-logout {
+					display: flex;
+					flex-direction: row;
+					align-items: center; /* Vertically align icon and text */
+					gap: 1rem;
+					position: relative;
+					padding: 0.5rem 0.5rem;
+					cursor: pointer;
+
+					&:hover {
+						background-color: #007bff; /* Add a subtle background */
+
+						border-radius: 5px;
+
+						.item {
+							color: white; /* Change text color to white */
+						}
+
+						.item-icon {
+							color: white; /* Change icon color to white */
+						}
+					}
+
+					.item-icon {
+						display: flex;
+						align-items: center;
+						justify-content: center;
+						cursor: pointer; /* Make the icon appear interactive */
+					}
+
+					.item {
+						font-size: 1rem;
+						line-height: 1.5rem; /* Matches icon size for alignment */
+						color: #333;
+						white-space: nowrap; /* Prevent text from wrapping */
+						display: none;
+						position: absolute; /* Position to ensure it's hidden offscreen */
+						transition:
+							transform 0.3s ease,
+							opacity 0.3s ease; /* Smooth transition for text visibility */
+
+						&:hover {
+							cursor: pointer;
+						}
+					}
+
+					/* Ensure hover applies to both the icon and text */
+				}
 			}
-
-			.logout {
-				background-color: white;
-				color: #e9686a;
-			}
-
-			.add:hover,
-			.dashboard:hover {
-				background-color: rgb(224, 209, 209);
-				cursor: pointer;
-			}
-
-			.logout:hover {
-				background-color: #e9686a;
-				color: white;
-				cursor: pointer;
-			}
-		}
-
-		.arrow {
-			padding: 0.3rem;
-			height: fit-content;
-		}
-
-		.arrow:hover {
-			background-color: rgb(224, 209, 209);
-			cursor: pointer;
 		}
 	}
-}
 
-.table {
-	flex: 1; /* Ensures it takes up available space */
-	margin: auto;
-}
+	.footer {
+		width: 100%;
+		text-align: center;
 
-.footer {
-	margin-top: auto; /* Push the footer to the bottom */
-	width: 100%;
-	text-align: center;
-	padding: 20px 10px;
+		margin-bottom: 3rem;
 
-	.builtSearch {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 10px;
-		font-size: 14px;
-		color: #6c757d;
-	}
-
-	.builtSearch img {
-		height: 20px;
-		width: auto;
-	}
-
-	hr {
-		margin: 10px auto;
-		border: none;
-		border-top: 1px solid #dee2e6;
-		width: 90%;
-	}
-
-	span {
-		font-size: 14px;
-		color: #6c757d;
-
-		a {
-			text-decoration: none;
-			color: #007bff;
+		.builtSearch {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 14px;
+			color: #6c757d;
+			flex-direction: column;
 		}
 
-		a:hover {
-			text-decoration: underline;
+		.builtSearch img {
+			height: 20px;
+			width: auto;
 		}
+
+		.text {
+			height: 14px;
+			width: auto;
+		}
+
+		hr {
+			margin: 10px auto;
+			border: none;
+			border-top: 1px solid #dee2e6;
+			width: 90%;
+		}
+
+		span {
+			font-size: 14px;
+			color: #6c757d;
+
+			a {
+				text-decoration: none;
+				color: #007bff;
+			}
+
+			a:hover {
+				text-decoration: underline;
+			}
+		}
+	}
+
+	.table {
+		flex: 1;
+		margin-left: 10rem;
 	}
 }
 </style>
