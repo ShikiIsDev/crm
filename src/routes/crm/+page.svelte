@@ -886,6 +886,66 @@ async function addTags() {
 	}
 }
 
+async function bulkEdit() {
+	try {
+		// Check that bulkEditField is valid
+		if (!bulkEditField) {
+			alert("Please select a field to edit.");
+			return;
+		}
+
+		// Iterate through selected rows
+		for (const id of selectedRows) {
+			console.log(id);
+			const item = data.data.find((item) => item.id === id);
+			if (!item) continue; // Skip if item not found
+
+			const email = item.email;
+			if (!email) continue; // Skip if email is not found
+
+			console.log(email);
+
+			// Prepare FormData for updating the row
+			const formData = new FormData();
+			formData.append("email", email);
+
+			// Conditionally append the field to update based on bulkEditField
+			if (bulkEditField === "company_name") {
+				formData.append("company_name", inputValue);
+			} else if (bulkEditField === "remarks") {
+				formData.append("remarks", inputValue);
+			}
+
+			// Send a PATCH request to update the field
+			const response = await fetch("/crm/bulkApi", {
+				method: "PUT",
+				body: formData,
+			});
+
+			// Check if the update was successful
+			if (response.ok) {
+				console.log(`Field "${bulkEditField}" updated for ${email} successfully`);
+
+				// Update the field locally in `data` to avoid page reload
+				if (bulkEditField === "company_name") {
+					item.company_name = inputValue;
+				} else if (bulkEditField === "remarks") {
+					item.remarks = inputValue;
+				}
+			} else {
+				console.error(`Failed to update ${bulkEditField} for ${email}:`, await response.text());
+			}
+		}
+
+		// Clear input and selection
+		inputValue = "";
+		selectedRows.clear();
+		alert(`Bulk edit of "${bulkEditField}" completed successfully.`);
+	} catch (error) {
+		console.error("Unexpected error:", error);
+	}
+}
+
 updateTableData();
 </script>
 
@@ -921,7 +981,7 @@ updateTableData();
 							<div class="action" on:click={bulkEditing}>
 								Mass Edit <Icon icon="typcn:edit" width="1.2em" height="1.2em"></Icon>
 							</div>
-							<div class="action-delete">
+							<div class="action-delete" on:click={deleteSelectedRows}>
 								Delete <Icon icon="typcn:delete" width="1.2em" height="1.2em"></Icon>
 							</div>
 
@@ -935,24 +995,19 @@ updateTableData();
 										<input
 											type="checkbox"
 											checked={bulkEditField === "company_name"}
-											on:change={() => bulkEditField === "company_name"} />
+											on:change={() => (bulkEditField = "company_name")} />
 										Edit Company Name
 									</label>
 									<label>
 										<input
 											type="checkbox"
 											checked={bulkEditField === "remarks"}
-											on:change={() => bulkEditField === "remarks"} />
+											on:change={() => (bulkEditField = "remarks")} />
 										Edit Remarks
 									</label>
 								</div>
-								{#if bulkEditField !== ""}
-									<input
-										type="text"
-										bind:value={inputValue}
-										placeholder={`Enter new ${bulkEditField}`} />
-									<button on:click={saveBulkEdit}>Save</button>
-								{/if}
+								<input type="text" bind:value={inputValue} placeholder="Enter..." />
+								<button on:click={bulkEdit}>Enter</button>
 							{/if}
 						</div>
 					{/if}
@@ -1041,51 +1096,44 @@ updateTableData();
 									<td>
 										{#if editingRow === item.id}
 											{#if key === "attachments"}
-												<ul>
-													{#each filesByEmail[item.email] as { file_path, name }, index}
-														<li>
-															<button on:click={() => getDownloadLink(file_path)}>
-																{name}
-															</button>
-															<button
-																on:click={() => deleteFile(item.email, index)}
-																class="delete-button">
-																Delete
-															</button>
-														</li>
-													{/each}
-													<div>
-														<button
-															on:click={() => {
-																email = item.email; // Set email dynamically for this item
-																fileInput.click(); // Trigger file input
-															}}>
-															Add Files
-														</button>
-														<input
-															type="file"
-															id="fileInput"
-															accept="*/*"
-															multiple
-															bind:this={fileInput}
-															on:change={addFiles}
-															style="display: none;" />
+												{#each filesByEmail[item.email] as { file_path, name }, index}
+													<button on:click={() => getDownloadLink(file_path)}>
+														{name}
+													</button>
+													<button
+														on:click={() => deleteFile(item.email, index)}
+														class="delete-button">
+														Delete
+													</button>
+												{/each}
+												<div>
+													<button
+														on:click={() => {
+															email = item.email; // Set email dynamically for this item
+															fileInput.click(); // Trigger file input
+														}}>
+														Add Files
+													</button>
+													<input
+														type="file"
+														id="fileInput"
+														accept="*/*"
+														multiple
+														bind:this={fileInput}
+														on:change={addFiles}
+														style="display: none;" />
 
-														{#if selectedFiles.length > 0}
-															<ul>
-																{#each selectedFiles as file, index}
-																	<li>
-																		{file.name}
-																		<button on:click={() => removeFile(index)}>Remove</button>
-																	</li>
-																{/each}
-															</ul>
-															<button on:click={saveFiles}>Save</button>
-														{:else}
-															<p>No files selected.</p>
-														{/if}
-													</div>
-												</ul>
+													{#if selectedFiles.length > 0}
+														{#each selectedFiles as file, index}
+															{file.name}
+															<button on:click={() => removeFile(index)}>Remove</button>
+														{/each}
+
+														<button on:click={saveFiles}>Save</button>
+													{:else}
+														<p>No files selected.</p>
+													{/if}
+												</div>
 											{:else if key === "last_modified"}
 												{new Intl.DateTimeFormat(undefined, {
 													dateStyle: "medium",
@@ -1109,15 +1157,13 @@ updateTableData();
 											{/if}
 										{:else if key === "attachments"}
 											{#if filesByEmail[item.email]?.length}
-												<ul>
-													{#each filesByEmail[item.email] as { file_path, name }, index}
-														<li>
-															<button on:click={() => getDownloadLink(file_path)}>
-																{name}
-															</button>
-														</li>
-													{/each}
-												</ul>
+												{#each filesByEmail[item.email] as { file_path, name }, index}
+													<div class="attachments">
+														<button on:click={() => getDownloadLink(file_path)}>
+															{name}
+														</button>
+													</div>
+												{/each}
 											{:else}
 												No files
 											{/if}
@@ -1227,6 +1273,8 @@ updateTableData();
 .body {
 	font-family: "Poppins", sans-serif;
 	align-items: center;
+	flex: 1;
+
 	display: flex;
 	min-height: 100vh;
 	margin: auto 0;
@@ -1452,6 +1500,26 @@ updateTableData();
 			overflow-x: auto; /* Enable horizontal scrolling */
 			overflow-y: auto; /* Enable vertical scrolling */
 			position: relative; /* For sticky header positioning */
+
+			.attachments {
+				display: flex;
+				flex-direction: column;
+				padding: 0.2rem;
+
+				button {
+					background-color: #007bff;
+					color: white;
+					border: 0px;
+					border-radius: 2px;
+					padding: 0.5rem;
+					font-family: "Poppins";
+					cursor: pointer;
+				}
+
+				button:hover {
+					background-color: #0056b3;
+				}
+			}
 
 			table {
 				width: max-content; /* Ensures the table adjusts to the container width */

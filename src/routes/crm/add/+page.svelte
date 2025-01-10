@@ -137,11 +137,11 @@ async function handleSubmit(event) {
 			</div>
 
 			<div class="form-group">
-				<label for="email">Email (required)</label>
+				<label for="email" required>Email (required)</label>
 				<input type="email" name="email" required bind:value={email} />
 			</div>
 
-			<div class="form-group">
+			<div class="form-group" required>
 				<label for="first_name">First Name (required)</label>
 				<input type="text" name="first_name" required />
 			</div>
@@ -275,7 +275,6 @@ async function handleSubmit(event) {
 <style lang="scss">
 .upload-container {
 	display: flex;
-	justify-content: center;
 	margin-bottom: 1rem;
 	.upload {
 		padding: 1rem;
@@ -283,13 +282,12 @@ async function handleSubmit(event) {
 		display: flex;
 		flex-direction: column;
 		width: min(100%, 450px);
-		aspect-ratio: 3 /2;
+		aspect-ratio: 3 / 2;
 		margin-inline: auto;
 		border: 2px dashed #82868f;
 		border-radius: 1rem;
 		gap: 1rem;
 		background-color: #f4f6f6;
-		display: flex;
 		align-items: center;
 		justify-content: center;
 		span {
@@ -317,22 +315,16 @@ async function handleSubmit(event) {
 		}
 	}
 }
+
 .body {
 	font-family: "Poppins";
 	background-color: #f9fafc;
 	display: flex;
-	justify-content: center;
-	align-items: center;
-	min-height: 100vh;
-	margin: 0;
-}
-
-.body {
-	display: flex;
-	justify-content: center;
-	align-items: center;
+	justify-content: flex-start; /* Align to top */
+	align-items: flex-start; /* Align to top */
 	padding: 2rem;
 	width: 100%;
+	height: 100vh; /* Ensure the body takes full height */
 }
 
 .form-card {

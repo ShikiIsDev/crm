@@ -1,4 +1,11 @@
-<form method="POST" action="?/login">
+<script>
+let isLoading = false;
+</script>
+
+{#if isLoading === true}
+	<span class="spinner"></span>
+{/if}
+<form method="POST" action="?/login" on:submit={() => (loading = true)}>
 	<img src="builtSearchLogo.png" alt="logo" />
 	<p>Login</p>
 	<label>
@@ -72,6 +79,24 @@ form {
 			border: 1px solid #b9d9df;
 			padding: 0.5rem;
 			font-size: 1rem;
+		}
+	}
+	.spinner {
+		display: inline-block;
+		width: 16px;
+		height: 16px;
+		border: 2px solid transparent;
+		border-top: 2px solid #000;
+		border-radius: 50%;
+		animation: spin 0.6s linear infinite;
+	}
+
+	@keyframes spin {
+		from {
+			transform: rotate(0deg);
+		}
+		to {
+			transform: rotate(360deg);
 		}
 	}
 

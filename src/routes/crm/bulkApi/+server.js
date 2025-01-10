@@ -61,3 +61,66 @@ export async function PATCH({ request }) {
         return json({ success: false, message: error.message || 'An error occurred' }, { status: 500 });
     }
 }
+
+export async function PUT({ request }) {
+    console.log("test mass edit");
+    try {
+        const formData = await request.formData();
+        const email = formData.get("email"); // Email to identify the record
+        const newCompanyName = formData.get("company_name"); // New company name
+        const newRemarks = formData.get("remarks"); // New remarks
+        const date_modified = new Date().toISOString();
+
+        if (!email) {
+            throw new Error("Email is required to update the record.");
+        }
+
+        // Check which field to update
+        if (newCompanyName) {
+            // Update company name
+            const { data: companyEdit, error: companyError } = await supabase
+                .from('contacts')
+                .update({
+                    company_name: newCompanyName,
+                    date_modified,
+                })
+                .eq('email', email);
+
+            if (companyError) {
+                console.error(companyError);
+                throw new Error(`Failed to update company name: ${companyError.message}`);
+            } else {
+                console.log("Company name updated:", companyEdit);
+            }
+        }
+
+        if (newRemarks) {
+            // Update remarks
+            const { data: remarksEdit, error: remarksError } = await supabase
+                .from('contacts')
+                .update({
+                    remarks: newRemarks,
+                    date_modified,
+                })
+                .eq('email', email);
+
+            if (remarksError) {
+                console.error(remarksError);
+                throw new Error(`Failed to update remarks: ${remarksError.message}`);
+            } else {
+                console.log("Remarks updated:", remarksEdit);
+            }
+        }
+
+        // If neither field is provided
+        if (!newCompanyName && !newRemarks) {
+            throw new Error("At least one field (company_name or remarks) must be provided.");
+        }
+
+        return json({ success: true, message: "Record updated successfully." });
+    } catch (error) {
+        console.error("Error:", error.message || error);
+        return json({ success: false, message: error.message || "An error occurred." }, { status: 500 });
+    }
+}
+
