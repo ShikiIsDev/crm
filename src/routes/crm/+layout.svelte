@@ -9,13 +9,10 @@ export let data;
 let { supabase } = data;
 
 let isOpen = false;
+let isMobileMenuOpen = false;
 
 function openBar() {
-	if (isOpen === false) {
-		isOpen = true;
-	} else if (isOpen === true) {
-		isOpen = false;
-	}
+	isMobileMenuOpen = !isMobileMenuOpen;
 }
 
 onMount(() => {
@@ -43,6 +40,10 @@ async function handleLogout() {
 
 <main>
 	<div class="sidebar">
+		<button class="hamburger" on:click={openBar} aria-label="Toggle menu">
+			<Icon icon="mdi:menu" style="color: #344856" height="2rem" width="2rem" />
+		</button>
+
 		<img src="builtSearchLogo.png" alt="logo" />
 
 		<div class="content">
@@ -101,7 +102,9 @@ async function handleLogout() {
 	</div>
 
 	<div class="table">
-		<slot />
+		<center>
+			<slot />
+		</center>
 	</div>
 </main>
 
@@ -110,9 +113,30 @@ main {
 	display: flex;
 	flex-direction: row;
 	font-family: "Poppins";
-	align-items: center;
+	height: 100vh;
 	color: #344856;
 	overflow-x: hidden;
+	flex-grow: 1;
+	align-items: center;
+
+	.hamburger {
+		display: none;
+		position: fixed;
+		top: 1rem;
+		left: 1rem;
+		z-index: 2000;
+		background: none;
+		border: none;
+		cursor: pointer;
+
+		&:focus {
+			outline: none;
+		}
+
+		svg {
+			pointer-events: none;
+		}
+	}
 
 	a {
 		text-decoration: none;
@@ -136,6 +160,15 @@ main {
 			margin-top: 1rem; /* Add consistent spacing from the top */
 		}
 
+		&.isOpen {
+			transform: translateX(0); // Shown when menu is open
+		}
+
+		@media (max-width: 768px) {
+			transform: translateX(-100%);
+			width: 70vw; // Adjust sidebar width for mobile
+		}
+
 		&:hover {
 			width: 15vw;
 			.content .icons .icon .item {
@@ -153,17 +186,17 @@ main {
 			}
 
 			.footer {
-				display: block;
+				visibility: visible;
 				opacity: 1;
 				transform: translateX(0);
 			}
 		}
 
 		.footer {
-			margin-top: 23rem;
+			margin-top: auto;
 			width: 100%;
 			text-align: center;
-			display: none;
+			visibility: hidden;
 			opacity: 0;
 			transition:
 				transform 0.3s ease,
@@ -173,11 +206,12 @@ main {
 
 		.content {
 			display: flex;
-			justify-content: space-evenly;
+			justify-content: space-between;
 			flex-direction: column;
 			width: 100%;
 			margin-top: 1rem;
 			transition: opacity 0.3s ease;
+			flex-grow: 1;
 
 			.icons {
 				display: flex;
@@ -277,6 +311,7 @@ main {
 	}
 
 	.footer {
+		margin-top: auto;
 		width: 100%;
 		text-align: center;
 
@@ -324,8 +359,15 @@ main {
 	}
 
 	.table {
-		flex: 1;
-		margin-left: 10rem;
+		display: flex;
+		justify-content: center; /* Center horizontally */
+		align-items: center; /* Center vertically */
+		flex: 1; /* Allow the table to expand and take available space */
+		width: 100%;
+
+		@media (max-width: 768px) {
+			margin-left: 0; // Remove left margin on mobile
+		}
 	}
 }
 </style>

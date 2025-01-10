@@ -35,9 +35,11 @@ let isIndeterminate = false;
 
 let editingField = null;
 let editedData = {};
+let isEditing = null;
 
 let displayedData = [];
 // updateTableData();
+let tableData = data.data;
 
 let rows = data.data.map((row) => ({
 	id: row.id,
@@ -57,8 +59,7 @@ let rows = data.data.map((row) => ({
 	pspc_cat: row.pspc_cat,
 	remarks: row.remarks,
 	pdpa: row.pdpa,
-	date_created: row.date_created,
-	date_modified: row.date_modified,
+	last_modified: row.last_modified,
 	// date_modified: row.date_modified
 }));
 
@@ -84,13 +85,15 @@ let checkedFields = {
 	pdpa: false,
 	remarks: false,
 	attachments: false,
-	// date_modified: true,
+	last_modified: true,
 };
-
 let sortConfig = {
 	key: null, // Column to sort by (e.g., 'company_name')
 	direction: null, // 'asc' for ascending, 'desc' for descending
 };
+
+let bulkEditField = ""; // Tracks the field being edited ("company_name" or "remarks")
+let inputValue = ""; // Holds the value to be saved
 
 let filesByEmail = data.fileData.reduce((acc, { email, file_path, name }) => {
 	if (!acc[email]) acc[email] = [];
@@ -101,6 +104,15 @@ let filesByEmail = data.fileData.reduce((acc, { email, file_path, name }) => {
 let fileInput;
 let selectedFiles = [];
 let email = null;
+let sortedData = [];
+
+let isBulkAction = false;
+let isTagging = false;
+let isDeleting = false;
+let isBulkEdit = false;
+let newTag = "";
+
+console.log(data.data);
 
 const show_fields = [
 	{ value: "email", label: "Email" },
@@ -249,11 +261,17 @@ function handleShowRowsChange(event) {
 }
 
 function updateTableData() {
+	const sortedData = originalData.sort(
+		(a, b) => new Date(b.last_modified) - new Date(a.last_modified),
+	);
+
+	// Paginate the sorted data
 	const start = (currentPage - 1) * showRows;
 	const end = start + showRows;
-	displayedData = rows.slice(start, end);
+	displayedData = sortedData.slice(start, end); // Display only the current page's data
+
+	// Update the displayed data
 	data.data = displayedData;
-	// console.log(displayedData)
 }
 
 function nextPage() {
@@ -305,6 +323,10 @@ function handleClickOutside(event) {
 
 onMount(() => {
 	document.addEventListener("click", handleClickOutside);
+
+	sortConfig = { key: "date_created", direction: "desc" };
+	sortData("date_created");
+	updateTableData();
 });
 
 function filterData(item) {
@@ -430,6 +452,48 @@ async function updateContact(row) {
 	}
 }
 
+async function exportTemplate(fileName = "Template.xlsx") {
+	// Validate fileName as a string
+	if (typeof fileName !== "string" || fileName.trim() === "") {
+		fileName = "Template.xlsx";
+	}
+
+	// Headers to be included
+	const headers = [
+		"first_name",
+		"last_name",
+		"company_name",
+		"company_reg",
+		"contact",
+		"country",
+		"email",
+		"facebook",
+		"instagram",
+		"tags",
+		"website",
+		"whatsapps",
+		"builtsearchUrl",
+		"pspc_cat",
+		"remarks",
+		"pdpa",
+	];
+
+	// Generate worksheet
+	const worksheetData = [headers];
+	const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+
+	// Create workbook
+	const workbook = XLSX.utils.book_new();
+	XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+
+	// Write file (Ensure this method is supported in your environment)
+	try {
+		XLSX.writeFile(workbook, fileName);
+	} catch (error) {
+		console.error("Error exporting file:", error);
+	}
+}
+
 function exportToExcel() {
 	if (!data || !data.data || data.data.length === 0) {
 		alert("No data available to export.");
@@ -469,6 +533,7 @@ function toggleHiddenFields() {
 }
 
 function sortData(key) {
+	console.log(key);
 	if (sortConfig.key === key) {
 		// If the same column is clicked, toggle the direction
 		sortConfig.direction = sortConfig.direction === "asc" ? "desc" : "asc";
@@ -478,10 +543,17 @@ function sortData(key) {
 		sortConfig.direction = "asc";
 	}
 
+	const isDateField = ["last_modified"].includes(key);
+
 	// Sort the data
 	const sortedData = [...data.data].sort((a, b) => {
-		const valA = a[key] || ""; // Handle undefined values
-		const valB = b[key] || ""; // Handle undefined values
+		let valA = a[key] || ""; // Handle undefined values
+		let valB = b[key] || ""; // Handle undefined values
+
+		if (isDateField) {
+			valA = new Date(valA).getTime();
+			valB = new Date(valB).getTime();
+		}
 
 		if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
 		if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
@@ -516,6 +588,10 @@ function sortData(key) {
 //         console.error("Unexpected error:", error);
 //     }
 // }
+
+function BulkAction() {
+	isBulkAction = !isBulkAction;
+}
 
 async function deleteSelectedRows() {
 	const confirmation = confirm("Are you sure you want to delete the selected rows?");
@@ -591,6 +667,9 @@ async function saveRow() {
 
 		const resp = await fetch("/crm", {
 			method: "PATCH",
+			headers: {
+				"Content-Type": "application/json",
+			},
 			body: JSON.stringify(editedData),
 		});
 
@@ -598,10 +677,24 @@ async function saveRow() {
 
 		if (result.success) {
 			console.log(result.message);
+
+			const index = data.data.findIndex((item) => item.id === editedData.id);
+			if (index !== -1) {
+				// Update the row in the array (this will trigger reactivity)
+				const currentDate = new Date().toISOString(); // Get the current date in ISO format
+				editedData.last_modified = currentDate;
+
+				// Update the row in the array (this will trigger reactivity)
+				data.data[index] = { ...data.data[index], ...editedData };
+			}
+
+			// Reset the editing state
+			editingRow = null;
+			editedData = {};
+			console.log("Row updated successfully");
 		} else {
 			console.error("Fetch error:", result.message);
 		}
-		location.reload();
 	} catch (err) {
 		console.error("Error saving row via API:", err);
 	}
@@ -734,6 +827,65 @@ function cancelEdit() {
 	editingRow = null; // Exit editing mode
 }
 
+function tagging() {
+	isTagging = !isTagging;
+	isBulkEdit = false;
+}
+
+function bulkEditing() {
+	isBulkEdit = !isBulkEdit;
+	isTagging = false;
+}
+
+async function addTags() {
+	try {
+		// Loop over each selected row ID
+		for (const id of selectedRows) {
+			console.log(id);
+			const item = data.data.find((item) => item.id === id);
+			if (!item) continue; // Skip if item not found
+
+			const email = item.email;
+			if (!email) continue; // Skip if email is not found
+
+			const first_name = item.first_name;
+			const last_name = item.last_name;
+
+			console.log(email);
+
+			// Prepare FormData for updating the row with the new tag
+			const formData = new FormData();
+			formData.append("email", email);
+			formData.append("first_name", first_name);
+			formData.append("last_name", last_name);
+			formData.append("tags", newTag);
+
+			// Send a PATCH or POST request to update the tag (adjust endpoint as needed)
+			const response = await fetch("/crm/bulkApi", {
+				method: "PATCH",
+				body: formData,
+			});
+
+			// Check if the update was successful
+			if (response.ok) {
+				console.log(`Tag "${newTag}" added to ${email} successfully`);
+
+				// Update the tag locally in `data` to avoid page reload
+				item.tags = [...(item.tags || []), newTag];
+			} else {
+				console.error(`Failed to add tag to ${email}:`, await response.text());
+			}
+		}
+
+		// Clear input and selection
+		newTag = "";
+		selectedRows.clear();
+		alert("Tag added successfully to selected rows.");
+	} catch (error) {
+		console.error("Unexpected error:", error);
+	}
+}
+
 updateTableData();
 </script>
 
@@ -749,18 +901,65 @@ updateTableData();
 					on:change={handleFileUpload}
 					style="display: none;" />
 			</div>
+			<div on:click={() => exportTemplate("Template.xlsx")} class="export">Export Template</div>
 			<div on:click={exportToExcel} class="export">Export Excel</div>
 
 			<div on:click={exportToVCF} class="export">Export VCF</div>
 		</div>
 		<div class="header">
-			{#if selectedRows.size > 0}
-				<button on:click={deleteSelectedRows}>
-					Delete Selected ({selectedRows.size})
-				</button>
-			{:else}
-				<p>Contact ({rows.length})</p>
-			{/if}
+			<div class="head">
+				{#if selectedRows.size > 0}
+					<button on:click={BulkAction}>
+						Bulk Actions ({selectedRows.size})
+					</button>
+
+					{#if isBulkAction === true}
+						<div class="bulk-actions">
+							<div class="action" on:click={tagging}>
+								Tag <Icon icon="typcn:tag" width="1.2em" height="1.2em"></Icon>
+							</div>
+							<div class="action" on:click={bulkEditing}>
+								Mass Edit <Icon icon="typcn:edit" width="1.2em" height="1.2em"></Icon>
+							</div>
+							<div class="action-delete">
+								Delete <Icon icon="typcn:delete" width="1.2em" height="1.2em"></Icon>
+							</div>
+
+							{#if isTagging === true}
+								<label for="Tags">Tags</label>
+								<input type="text" bind:value={newTag} placeholder="Enter New Tag" />
+								<button on:click={addTags}>Add Tag</button>
+							{:else if isBulkEdit === true}
+								<div class="bulk-edit">
+									<label>
+										<input
+											type="checkbox"
+											checked={bulkEditField === "company_name"}
+											on:change={() => bulkEditField === "company_name"} />
+										Edit Company Name
+									</label>
+									<label>
+										<input
+											type="checkbox"
+											checked={bulkEditField === "remarks"}
+											on:change={() => bulkEditField === "remarks"} />
+										Edit Remarks
+									</label>
+								</div>
+								{#if bulkEditField !== ""}
+									<input
+										type="text"
+										bind:value={inputValue}
+										placeholder={`Enter new ${bulkEditField}`} />
+									<button on:click={saveBulkEdit}>Save</button>
+								{/if}
+							{/if}
+						</div>
+					{/if}
+				{:else}
+					<p>Contact ({rows.length})</p>
+				{/if}
+			</div>
 
 			<div class="functions">
 				<div class="search-field">
@@ -786,6 +985,7 @@ updateTableData();
 				</div>
 			</div>
 		</div>
+
 		<div class="table">
 			<table>
 				<thead>
@@ -802,9 +1002,21 @@ updateTableData();
 											{#if sortConfig.key === key}
 												{#if sortConfig.direction === "asc"}
 													<Icon icon="akar-icons:arrow-up" />
-												{:else}
+												{:else if sortConfig.direction === "desc"}
 													<Icon icon="akar-icons:arrow-down" />
+												{:else}
+													<Icon
+														icon="system-uicons:sort"
+														width="1.2em"
+														height="1.2em"
+														style="color: #000"></Icon>
 												{/if}
+											{:else}
+												<Icon
+													icon="system-uicons:sort"
+													width="1.2em"
+													height="1.2em"
+													style="color: #000"></Icon>
 											{/if}
 										</div>
 									</div>
@@ -812,7 +1024,6 @@ updateTableData();
 							{/if}
 						{/each}
 						<th>Actions</th>
-						<th>Date Modified</th>
 					</tr>
 				</thead>
 
@@ -875,6 +1086,12 @@ updateTableData();
 														{/if}
 													</div>
 												</ul>
+											{:else if key === "last_modified"}
+												{new Intl.DateTimeFormat(undefined, {
+													dateStyle: "medium",
+													timeStyle: "short",
+													timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+												}).format(new Date(item[key]))}
 											{:else}
 												<input type="text" bind:value={editedData[key]} />
 											{/if}
@@ -935,6 +1152,12 @@ updateTableData();
 											<div on:click={() => copyEmailToClipboard(item[key])} class="copy-email">
 												{item[key]}
 											</div>
+										{:else if key === "last_modified"}
+											{new Intl.DateTimeFormat(undefined, {
+												dateStyle: "medium",
+												timeStyle: "short",
+												timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+											}).format(new Date(item[key]))}
 										{:else}
 											{item[key]}
 										{/if}
@@ -952,21 +1175,6 @@ updateTableData();
 										</button>
 									{/if}
 								</div>
-							</td>
-							<td>
-								{#if item.date_modified}
-									{new Intl.DateTimeFormat(undefined, {
-										dateStyle: "medium",
-										timeStyle: "short",
-										timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-									}).format(new Date(item.date_modified))}
-								{:else}
-									{new Intl.DateTimeFormat(undefined, {
-										dateStyle: "medium",
-										timeStyle: "short",
-										timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-									}).format(new Date(item.date_created))}
-								{/if}
 							</td>
 						</tr>
 					{/each}
@@ -1021,6 +1229,7 @@ updateTableData();
 	align-items: center;
 	display: flex;
 	min-height: 100vh;
+	margin: auto 0;
 	width: 100%; /* Adjusted to avoid issues with scrollbars */
 
 	font-size: 12px;
@@ -1064,6 +1273,53 @@ updateTableData();
 	.export:hover {
 		background-color: rgb(213, 204, 204);
 		cursor: pointer;
+	}
+
+	.bulk-actions {
+		margin: 0.5rem;
+		display: flex;
+		gap: 0.5rem;
+		height: 2rem;
+		position: absolute;
+		flex-direction: column;
+		border-radius: 5px;
+		z-index: 1000;
+		.action {
+			padding: 0.5rem;
+			background-color: white;
+			width: 4rem;
+			color: #849193;
+			border: #849193 1px solid;
+			border-radius: 5px;
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+
+			justify-content: center;
+			gap: 0.5rem;
+
+			&:hover {
+				background-color: rgb(213, 204, 204);
+			}
+		}
+
+		.action-delete {
+			padding: 0.5rem;
+			width: 4rem;
+			background-color: white;
+			border-radius: 5px;
+			cursor: pointer;
+			color: #e9686a;
+			border: #e9686a 1px solid;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 0.5rem;
+
+			&:hover {
+				background-color: rgb(213, 204, 204);
+			}
+		}
 	}
 
 	.contact {
@@ -1203,6 +1459,12 @@ updateTableData();
 				min-width: 100%;
 			}
 
+			.header-content {
+				display: flex;
+				flex-direction: row;
+				gap: 0.5rem;
+			}
+
 			thead {
 				position: sticky;
 				top: 0;
@@ -1217,6 +1479,7 @@ updateTableData();
 				padding: 10px;
 				background-color: #f4f6f6;
 				white-space: nowrap;
+				cursor: pointer;
 			}
 
 			tbody td {

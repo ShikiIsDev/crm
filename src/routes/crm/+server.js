@@ -149,6 +149,7 @@ export async function PUT( { request }) {
                     facebook: facebook,
                     builtsearchUrl: builtsearchUrl,
                     date_modified: new Date().toISOString(),
+                    last_modified: new Date().toISOString(),
                     remarks: remarks,
                     pdpa: pdpa,
             })
@@ -205,6 +206,7 @@ export async function PATCH( { request }) {
                 facebook,
                 builtsearchUrl,
                 date_modified: new Date().toISOString(),
+                last_modified: new Date().toISOString(),
                 remarks,
                 pdpa,
             })

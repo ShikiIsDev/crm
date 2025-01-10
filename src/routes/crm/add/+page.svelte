@@ -96,13 +96,6 @@ async function handleSubmit(event) {
 
 		const result = await response.json();
 
-		if (response.ok) {
-			alert(`Success: ${result.message}`);
-			goto("/crm");
-		} else {
-			throw new Error(result.message);
-		}
-
 		for (const file of files) {
 			const uniqueFileName = `${uuidv4()}-${file.name}`;
 			const filePath = `attachments/${uniqueFileName}`;
@@ -125,6 +118,8 @@ async function handleSubmit(event) {
 				body: formData_attachments,
 			});
 		}
+
+		goto("/crm");
 	} catch (error) {
 		console.error("Error:", error);
 		alert(`Error: ${error.message}`);
